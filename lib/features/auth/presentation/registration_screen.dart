@@ -1,9 +1,9 @@
 // features/auth/presentation/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/widgets/text_widget.dart';
 import '../provider/auth_provider.dart';
 import 'login_screen.dart';
+import 'student_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,237 +14,414 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  // Controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
-  final TextEditingController _matricController = TextEditingController();
   String _selectedRole = 'Student';
+  String _selectedLevel = '100';
+  String _selectedDepartment = 'Computer Science'; // Added department selection
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+
+  // List of departments
+  final List<String> _departments = [
+    'Computer Science',
+    'Electrical Engineering',
+    'Mechanical Engineering',
+    'Civil Engineering',
+    'Chemistry',
+    'Physics',
+    'Mathematics',
+    'Accounting',
+    'Business Administration',
+  ];
+
+  bool _validateFirstPage() {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return false;
+    }
+    if (_emailController.text.isEmpty || !_emailController.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email')),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  void _nextPage() {
+    if (_currentPage == 0 && !_validateFirstPage()) return;
+
+    if (_currentPage < 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      setState(() {
+        _currentPage++;
+      });
+    }
+  }
+
+  void _previousPage() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      setState(() {
+        _currentPage--;
+      });
+    }
+  }
+
+  Future<void> _handleRegistration() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final result = await authProvider.register(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        confirmPassword: _confirmPasswordController.text,
+        role: _selectedRole,
+        level: _selectedRole == 'Student' ? _selectedLevel : null,
+        department: _selectedRole == 'Student' ? _selectedDepartment : null,
+      );
+
+      setState(() => _isLoading = false);
+
+      if (result == null) {
+        // Registration successful
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration successful!')),
+          );
+
+          // Different navigation based on role
+          if (_selectedRole == 'Student') {
+            // For students, navigate to verification screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StudentVerificationScreen(),
+              ),
+            );
+          } else {
+            // For other roles, navigate to login screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          }
+        }
+      } else {
+        // Registration failed
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result)),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              LinearProgressIndicator(
+                value: (_currentPage + 1) / 2,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (int page) {
+                    setState(() {
+                      _currentPage = page;
+                    });
+                  },
                   children: [
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w500,
+                    SingleChildScrollView(
+                      child: Container(
+                        height: MediaQuery.of(context).size.height - 100,
+                        child: _buildFirstPage(),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
+                    SingleChildScrollView(
+                      child: Container(
+                        height: MediaQuery.of(context).size.height - 100,
+                        child: _buildSecondPage(),
                       ),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Enter your name' : null,
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Enter your email' : null,
-                    ),
-                    SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _selectedRole,
-                      items: ['Student', 'Lecturer', 'Admin']
-                          .map((role) => DropdownMenuItem(
-                                value: role,
-                                child: Text(role),
-                              ))
-                          .toList(),
-                      onChanged: (value) =>
-                          setState(() => _selectedRole = value!),
-                      decoration: InputDecoration(
-                        //labelText: 'Role',
-                        hintText: 'role',
-                        prefixIcon: const Icon(Icons.work),
-                        border: const OutlineInputBorder(),
-                        filled: false,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          borderSide: const BorderSide(
-                            color: Colors.grey,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    if (_selectedRole == 'Student')
-                      TextFormField(
-                        controller: _matricController,
-                        decoration: const InputDecoration(
-                          labelText: 'Matric Number',
-                          prefixIcon: Icon(Icons.app_registration),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) =>
-                            value!.isEmpty ? 'Enter matric number' : null,
-                      ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: !_isPasswordVisible,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isPasswordVisible = !_isPasswordVisible;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Enter password' : null,
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: !_isConfirmPasswordVisible,
-                      decoration: InputDecoration(
-                        labelText: 'confirm Password',
-                        hintText: 'confirm password',
-                        prefixIcon: const Icon(Icons.lock),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _isConfirmPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isConfirmPasswordVisible =
-                                  !_isConfirmPasswordVisible;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Confirm your password' : null,
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        text12Normal(
-                          text: "By continuing, you agree to our",
-                          color: Colors.black,
-                        ),
-                        text12Normal(
-                          text: " terms & conditions",
-                          color: Colors.green,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _isLoading
-                        ? const CircularProgressIndicator()
-                        : GestureDetector(
-                            onTap: () async {
-                              if (_formKey.currentState!.validate()) {
-                                setState(() => _isLoading = true);
-                                final auth = Provider.of<AuthProvider>(context,
-                                    listen: false);
-                                final result = await auth.register(
-                                  name: _nameController.text.trim(),
-                                  email: _emailController.text.trim(),
-                                  password: _passwordController.text,
-                                  confirmPassword:
-                                      _confirmPasswordController.text,
-                                  role: _selectedRole,
-                                  matricNumber: _selectedRole == 'Student'
-                                      ? _matricController.text.trim()
-                                      : '',
-                                );
-                                setState(() => _isLoading = false);
-
-                                if (result != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(result)));
-                                } else {
-                                  Navigator.pushReplacementNamed(context, '/');
-                                }
-                              }
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(16),
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(10)),
-                              child: Center(
-                                child: const Text(
-                                  'Register',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                    SizedBox(height: 20),
-                    GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => LoginScreen()));
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            text14Normal(
-                              text: 'Already have an account?',
-                              color: Colors.grey,
-                            ),
-                            text14Normal(
-                              text: ' Sign in here',
-                              color: Colors.green,
-                            ),
-                          ],
-                        )
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildFirstPage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          const Text(
+            "Create Account",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Full Name',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) =>
+                value?.isEmpty ?? true ? 'Please enter your name' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _emailController,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value?.isEmpty ?? true) return 'Please enter your email';
+              if (!value!.contains('@')) return 'Please enter a valid email';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedRole,
+            decoration: const InputDecoration(
+              labelText: 'Role',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Student', 'Lecturer', 'Admin'].map((String role) {
+              return DropdownMenuItem<String>(
+                value: role,
+                child: Text(role),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  _selectedRole = newValue;
+                });
+              }
+            },
+          ),
+          if (_selectedRole == 'Student') const SizedBox(height: 16),
+          if (_selectedRole == 'Student')
+            DropdownButtonFormField<String>(
+              value: _selectedLevel,
+              decoration: const InputDecoration(
+                labelText: 'Level',
+                border: OutlineInputBorder(),
+              ),
+              items: ['100', '200', '300', '400'].map((String level) {
+                return DropdownMenuItem<String>(
+                  value: level,
+                  child: Text('${level}Level'),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedLevel = newValue;
+                  });
+                }
+              },
+            ),
+          if (_selectedRole == 'Student') const SizedBox(height: 16),
+          if (_selectedRole == 'Student')
+            DropdownButtonFormField<String>(
+              value: _selectedDepartment,
+              decoration: const InputDecoration(
+                labelText: 'Department',
+                border: OutlineInputBorder(),
+              ),
+              items: _departments.map((String department) {
+                return DropdownMenuItem<String>(
+                  value: department,
+                  child: Text(department),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedDepartment = newValue;
+                  });
+                }
+              },
+            ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _nextPage,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              child: const Text('Next', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+            child: const Text(
+              'Already have an account? Sign in here',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecondPage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          const Text(
+            "Complete Registration",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: !_isPasswordVisible,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              ),
+            ),
+            validator: (value) {
+              if (value?.isEmpty ?? true) return 'Please enter a password';
+              if (value!.length < 6)
+                return 'Password must be at least 6 characters';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: !_isConfirmPasswordVisible,
+            decoration: InputDecoration(
+              labelText: 'Confirm Password',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isConfirmPasswordVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                  });
+                },
+              ),
+            ),
+            validator: (value) {
+              if (value?.isEmpty ?? true) return 'Please confirm your password';
+              if (value != _passwordController.text)
+                return 'Passwords do not match';
+              return null;
+            },
+          ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: _previousPage,
+                child: const Text('Back', style: TextStyle(color: Colors.blue)),
+              ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _handleRegistration,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Register',
+                        style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 }

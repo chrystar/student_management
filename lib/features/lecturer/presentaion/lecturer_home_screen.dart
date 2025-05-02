@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_create_course.dart';
-import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_new_tab.dart';
-import 'tabs/lecturer_home_tab.dart';
+import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_home_tab.dart';
+import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_registrations_tab.dart';
+import 'package:student_management/features/lecturer/presentaion/tabs/news_feed.dart';
 import 'tabs/lecturer_broadcast_tab.dart';
 import 'tabs/lecturer_profile_tab.dart';
 
@@ -18,30 +18,65 @@ class _LecturerHomeScreenState extends State<LecturerHomeScreen> {
   final List<Widget> _tabs = const [
     LecturerHomeTab(),
     LecturerBroadcastTab(),
-    LecturerCreateCourseTab(),
-    LecturerNewTab(),
     LecturerProfileTab(),
+    NewsFeed(),
   ];
 
   final List<BottomNavigationBarItem> _items = const [
-    BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-    BottomNavigationBarItem(icon: Icon(Icons.campaign), label: "Broadcast"),
-    BottomNavigationBarItem(icon: Icon(Icons.book), label: "Create Course"),
-    BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: "News"),
-    BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+    BottomNavigationBarItem(
+        icon: Icon(Icons.home_rounded),
+        activeIcon: Icon(Icons.home_rounded),
+        label: "Home"),
+    BottomNavigationBarItem(
+        icon: Icon(Icons.campaign_rounded),
+        activeIcon: Icon(Icons.campaign_rounded),
+        label: "Broadcast"),
+        BottomNavigationBarItem(
+        icon: Icon(Icons.person_rounded),
+        activeIcon: Icon(Icons.new_label_rounded),
+        label: "news feed"),
+    BottomNavigationBarItem(
+        icon: Icon(Icons.person_rounded),
+        activeIcon: Icon(Icons.person_rounded),
+        label: "Profile"),
+        
+    
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _tabs[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        items: _items,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.white,
+            currentIndex: _currentIndex,
+            items: _items,
+            onTap: (index) => setState(() => _currentIndex = index),
+            selectedItemColor: Theme.of(context).colorScheme.primary,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+            unselectedLabelStyle: const TextStyle(fontSize: 11),
+            showUnselectedLabels: true,
+            unselectedItemColor: Colors.grey.shade500,
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            iconSize: 26,
+          ),
+        ),
       ),
     );
   }

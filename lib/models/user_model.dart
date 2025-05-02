@@ -5,6 +5,8 @@ class UserModel {
   final String email;
   final String role;
   final String matricNumber;
+  final String? level; // Added level field
+  final String department; // Added department field
 
   UserModel({
     required this.uid,
@@ -12,6 +14,8 @@ class UserModel {
     required this.email,
     required this.role,
     required this.matricNumber,
+    this.level, // Optional for lecturers
+    required this.department, // Added to constructor
   });
 
   Map<String, dynamic> toMap() {
@@ -21,6 +25,8 @@ class UserModel {
       'email': email,
       'role': role,
       'matricNumber': matricNumber,
+      'level': level,
+      'department': department, // Include in JSON output
     };
   }
 
@@ -31,6 +37,8 @@ class UserModel {
       email: map['email'],
       role: map['role'],
       matricNumber: map['matricNumber'],
+      level: map['level'],
+      department: map['department'], // Parse from JSON
     );
   }
 }

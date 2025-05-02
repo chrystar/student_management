@@ -14,28 +14,98 @@ class AuthProvider with ChangeNotifier {
     required String password,
     required String confirmPassword,
     required String role,
-    required String matricNumber,
+    String? level,
+    String? department,
   }) async {
     try {
-      if (password != confirmPassword) return "Passwords do not match";
+      // Password validation
+      if (password != confirmPassword) {
+        return 'Passwords do not match';
+      }
 
+      // Create user in Firebase Auth - no matric validation at registration
       final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
 
-      final user = UserModel(
-        uid: userCredential.user!.uid,
-        name: name,
-        email: email,
-        role: role,
-        matricNumber: matricNumber,
-      );
+      // If user created successfully, add user data to Firestore
+      if (userCredential.user != null) {
+        final userId = userCredential.user!.uid;
 
-      await _firestore.collection('users').doc(user.uid).set(user.toMap());
-      return null;
+        // Add user data to users collection without matric number
+        await _firestore.collection('users').doc(userId).set({
+          'name': name.trim(),
+          'email': email.trim(),
+          'role': role,
+          'matricNumber': null, // Will be set during verification
+          'level': role == 'Student' ? level : null,
+          'department': role == 'Student' ? department : null,
+          'isVerified': false, // Track verification status
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        return null; // Registration successful
+      }
+
+      return 'Failed to create account';
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      if (e.code == 'email-already-in-use') {
+        return 'The email address is already in use';
+      } else if (e.code == 'weak-password') {
+        return 'The password is too weak';
+      } else if (e.code == 'invalid-email') {
+        return 'The email address is not valid';
+      }
+      return 'Registration error: ${e.message}';
+    } catch (e) {
+      return 'An error occurred: ${e.toString()}';
+    }
+  }
+
+  // Add a method to verify matric number after registration
+  Future<String?> verifyMatricNumber({
+    required String matricNumber,
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      // Check if matric number exists in valid_matric_numbers collection
+      final validMatricQuery = await _firestore
+          .collection('valid_matric_numbers')
+          .where('matricNumber', isEqualTo: matricNumber.trim().toUpperCase())
+          .get();
+
+      if (validMatricQuery.docs.isEmpty) {
+        return 'Invalid matric number. Please contact administration.';
+      }
+
+      final matricData = validMatricQuery.docs.first.data();
+      final isUsed = matricData['isUsed'] ?? false;
+
+      if (isUsed) {
+        return 'This matric number is already in use by another account.';
+      }
+
+      // Update the matric number in user's document and mark as used
+      await _firestore.collection('users').doc(userId).update({
+        'matricNumber': matricNumber.trim().toUpperCase(),
+        'isVerified': true,
+      });
+
+      // Mark the matric number as used in valid_matric_numbers collection
+      await _firestore
+          .collection('valid_matric_numbers')
+          .doc(validMatricQuery.docs.first.id)
+          .update({
+        'isUsed': true,
+        'userId': userId,
+        'userEmail': email,
+      });
+
+      return null; // Verification successful
+    } catch (e) {
+      return 'Verification failed: ${e.toString()}';
     }
   }
 
