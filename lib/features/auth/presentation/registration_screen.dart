@@ -23,12 +23,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _lecturerIdController =
+      TextEditingController(); // Added for lecturer ID
   String _selectedRole = 'Student';
   String _selectedLevel = '100';
   String _selectedDepartment = 'Computer Science'; // Added department selection
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isVerifyingLecturerId = false;
+  String? _lecturerIdError;
 
   // List of departments
   final List<String> _departments = [
@@ -85,8 +89,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  // This will verify lecturer ID without submitting the form
+  Future<void> _verifyLecturerId() async {
+    final lecturerId = _lecturerIdController.text.trim();
+    if (lecturerId.isEmpty) {
+      setState(() {
+        _lecturerIdError = 'Please enter a lecturer ID';
+      });
+      return;
+    }
+
+    setState(() {
+      _isVerifyingLecturerId = true;
+      _lecturerIdError = null;
+    });
+
+    // Verify the lecturer ID using the auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final verificationResult = await authProvider.verifyLecturerId(
+        lecturerId, _emailController.text.trim());
+
+    setState(() {
+      _isVerifyingLecturerId = false;
+      _lecturerIdError = verificationResult;
+    });
+
+    if (verificationResult == null) {
+      // ID is valid
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lecturer ID verified successfully!')),
+      );
+    }
+  }
+
   Future<void> _handleRegistration() async {
     if (_formKey.currentState?.validate() ?? false) {
+      // For lecturers, verify the ID first if not already verified
+      if (_selectedRole == 'Lecturer' &&
+          _lecturerIdController.text.isNotEmpty &&
+          _lecturerIdError != null) {
+        await _verifyLecturerId();
+        if (_lecturerIdError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_lecturerIdError!)),
+          );
+          return;
+        }
+      }
+
       setState(() => _isLoading = true);
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -98,6 +148,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         role: _selectedRole,
         level: _selectedRole == 'Student' ? _selectedLevel : null,
         department: _selectedRole == 'Student' ? _selectedDepartment : null,
+        lecturerId: _selectedRole == 'Lecturer'
+            ? _lecturerIdController.text.trim()
+            : null,
       );
 
       setState(() => _isLoading = false);
@@ -284,6 +337,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 }
               },
             ),
+          if (_selectedRole == 'Lecturer') const SizedBox(height: 16),
+          if (_selectedRole == 'Lecturer')
+            TextFormField(
+              controller: _lecturerIdController,
+              decoration: const InputDecoration(
+                labelText: 'Lecturer ID',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) => value?.isEmpty ?? true
+                  ? 'Please enter your lecturer ID'
+                  : null,
+            ),
+          if (_selectedRole == 'Lecturer') const SizedBox(height: 16),
+          if (_selectedRole == 'Lecturer')
+            ElevatedButton(
+              onPressed: _isVerifyingLecturerId ? null : _verifyLecturerId,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              child: _isVerifyingLecturerId
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('Verify Lecturer ID',
+                      style: TextStyle(color: Colors.white)),
+            ),
+          if (_lecturerIdError != null) const SizedBox(height: 8),
+          if (_lecturerIdError != null)
+            Text(
+              _lecturerIdError!,
+              style: const TextStyle(color: Colors.red),
+            ),
           const Spacer(),
           SizedBox(
             width: double.infinity,
@@ -421,6 +512,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _lecturerIdController.dispose();
     _pageController.dispose();
     super.dispose();
   }

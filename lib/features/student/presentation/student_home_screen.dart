@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:student_management/features/student/presentation/bottom_nav/results.dart';
-import 'package:student_management/features/student/presentation/bottom_nav/broadcast.dart';
 import 'package:student_management/features/student/presentation/bottom_nav/course_registration.dart';
 import 'package:student_management/features/student/presentation/bottom_nav/home_screen.dart';
 import 'package:student_management/features/student/presentation/bottom_nav/profile.dart';
+import 'package:student_management/features/student/presentation/bottom_nav/notifications.dart';
 import '../../auth/provider/user_provider.dart';
 
 class StudentHomeScreen extends StatefulWidget {
@@ -21,7 +21,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     HomeScreen(),
     CourseRegistration(),
     Results(),
-    StudentBroadcastTab(),
+    NotificationsScreen(),
     StudentProfileTab(),
   ];
 
@@ -139,8 +139,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 label: 'Result',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.campaign_rounded),
-                label: 'Broadcasts',
+                icon: Icon(Icons.notifications_rounded),
+                label: 'Notifications',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person_rounded),
@@ -176,7 +176,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       case 2:
         return 'Results';
       case 3:
-        return 'Broadcasts';
+        return 'Notifications';
       case 4:
         return 'Profile';
       default:

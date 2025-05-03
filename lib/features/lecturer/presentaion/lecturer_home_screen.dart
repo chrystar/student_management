@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_home_tab.dart';
 import 'package:student_management/features/lecturer/presentaion/tabs/lecturer_registrations_tab.dart';
 import 'package:student_management/features/lecturer/presentaion/tabs/news_feed.dart';
-import 'tabs/lecturer_broadcast_tab.dart';
+import 'package:student_management/features/admin/presentation/news/manage_news_screen.dart';
 import 'tabs/lecturer_profile_tab.dart';
 
 class LecturerHomeScreen extends StatefulWidget {
@@ -17,30 +17,28 @@ class _LecturerHomeScreenState extends State<LecturerHomeScreen> {
 
   final List<Widget> _tabs = const [
     LecturerHomeTab(),
-    LecturerBroadcastTab(),
+    LecturerNewsFeed(),
+    ManageNewsScreen(), // Added direct access to create/manage news
     LecturerProfileTab(),
-    NewsFeed(),
   ];
 
   final List<BottomNavigationBarItem> _items = const [
     BottomNavigationBarItem(
-        icon: Icon(Icons.home_rounded),
-        activeIcon: Icon(Icons.home_rounded),
-        label: "Home"),
+        icon: Icon(Icons.dashboard_rounded),
+        activeIcon: Icon(Icons.dashboard_rounded),
+        label: "Dashboard"),
     BottomNavigationBarItem(
-        icon: Icon(Icons.campaign_rounded),
-        activeIcon: Icon(Icons.campaign_rounded),
-        label: "Broadcast"),
-        BottomNavigationBarItem(
-        icon: Icon(Icons.person_rounded),
-        activeIcon: Icon(Icons.new_label_rounded),
-        label: "news feed"),
+        icon: Icon(Icons.newspaper_rounded),
+        activeIcon: Icon(Icons.newspaper_rounded),
+        label: "News Feed"),
+    BottomNavigationBarItem(
+        icon: Icon(Icons.post_add_rounded),
+        activeIcon: Icon(Icons.post_add_rounded),
+        label: "Manage News"),
     BottomNavigationBarItem(
         icon: Icon(Icons.person_rounded),
         activeIcon: Icon(Icons.person_rounded),
         label: "Profile"),
-        
-    
   ];
 
   @override

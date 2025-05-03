@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
     required String role,
     String? level,
     String? department,
+    String? lecturerId,
   }) async {
     try {
       // Password validation
@@ -23,7 +24,21 @@ class AuthProvider with ChangeNotifier {
         return 'Passwords do not match';
       }
 
-      // Create user in Firebase Auth - no matric validation at registration
+      // Lecturer ID validation for lecturer role
+      if (role == 'Lecturer') {
+        if (lecturerId == null || lecturerId.isEmpty) {
+          return 'Lecturer ID is required';
+        }
+
+        // Verify lecturer ID
+        final lecturerIdVerification =
+            await verifyLecturerId(lecturerId, email);
+        if (lecturerIdVerification != null) {
+          return lecturerIdVerification;
+        }
+      }
+
+      // Create user in Firebase Auth
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
@@ -33,17 +48,28 @@ class AuthProvider with ChangeNotifier {
       if (userCredential.user != null) {
         final userId = userCredential.user!.uid;
 
-        // Add user data to users collection without matric number
+        // Add user data to users collection
         await _firestore.collection('users').doc(userId).set({
           'name': name.trim(),
           'email': email.trim(),
           'role': role,
-          'matricNumber': null, // Will be set during verification
+          'matricNumber': null, // Will be set during verification for students
           'level': role == 'Student' ? level : null,
-          'department': role == 'Student' ? department : null,
-          'isVerified': false, // Track verification status
+          'department': role == 'Student'
+              ? department
+              : (role == 'Lecturer'
+                  ? await getLecturerDepartment(lecturerId!)
+                  : null),
+          'isVerified': role == 'Lecturer'
+              ? true
+              : false, // Lecturers are verified by ID, students need matric verification
           'createdAt': FieldValue.serverTimestamp(),
         });
+
+        // Mark lecturer ID as used if registration was successful
+        if (role == 'Lecturer' && lecturerId != null) {
+          await markLecturerIdAsUsed(lecturerId, userId);
+        }
 
         return null; // Registration successful
       }
@@ -60,6 +86,86 @@ class AuthProvider with ChangeNotifier {
       return 'Registration error: ${e.message}';
     } catch (e) {
       return 'An error occurred: ${e.toString()}';
+    }
+  }
+
+  // Verify lecturer ID against Firestore
+  Future<String?> verifyLecturerId(String lecturerId, String email) async {
+    try {
+      final lecturerIdQuery = await _firestore
+          .collection('lecturer_ids')
+          .where('id', isEqualTo: lecturerId.trim())
+          .get();
+
+      if (lecturerIdQuery.docs.isEmpty) {
+        return 'Invalid lecturer ID. Please contact administration.';
+      }
+
+      final lecturerData = lecturerIdQuery.docs.first.data();
+
+      // Check if ID is already used
+      if (lecturerData['isUsed'] == true) {
+        return 'This lecturer ID has already been used.';
+      }
+
+      // Check if ID is expired
+      final validUntil = lecturerData['validUntil'] as Timestamp?;
+      if (validUntil != null && validUntil.toDate().isBefore(DateTime.now())) {
+        return 'This lecturer ID has expired. Please contact administration for a new ID.';
+      }
+
+      // Check if ID was intended for this email (optional validation)
+      final intendedEmail = lecturerData['email'] as String?;
+      if (intendedEmail != null &&
+          intendedEmail.isNotEmpty &&
+          intendedEmail.toLowerCase() != email.toLowerCase()) {
+        return 'This lecturer ID was not issued for this email address.';
+      }
+
+      return null; // Verification successful
+    } catch (e) {
+      return 'Lecturer ID verification failed: ${e.toString()}';
+    }
+  }
+
+  // Mark lecturer ID as used after successful registration
+  Future<void> markLecturerIdAsUsed(String lecturerId, String userId) async {
+    try {
+      final lecturerIdQuery = await _firestore
+          .collection('lecturer_ids')
+          .where('id', isEqualTo: lecturerId.trim())
+          .get();
+
+      if (lecturerIdQuery.docs.isNotEmpty) {
+        await _firestore
+            .collection('lecturer_ids')
+            .doc(lecturerIdQuery.docs.first.id)
+            .update({
+          'isUsed': true,
+          'userId': userId,
+          'usedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      print('Failed to mark lecturer ID as used: ${e.toString()}');
+    }
+  }
+
+  // Get department from lecturer ID record
+  Future<String?> getLecturerDepartment(String lecturerId) async {
+    try {
+      final lecturerIdQuery = await _firestore
+          .collection('lecturer_ids')
+          .where('id', isEqualTo: lecturerId.trim())
+          .get();
+
+      if (lecturerIdQuery.docs.isNotEmpty) {
+        return lecturerIdQuery.docs.first.data()['department'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Failed to get lecturer department: ${e.toString()}');
+      return null;
     }
   }
 

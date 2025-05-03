@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../auth/provider/user_provider.dart';
+import 'package:student_management/features/admin/presentation/news/manage_news_screen.dart';
 
 class LecturerProfileTab extends StatefulWidget {
   const LecturerProfileTab({super.key});
@@ -155,50 +156,109 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
   Widget _buildStatsSection(user) {
     return StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('courses')
-            .where('createdBy', isEqualTo: user.name)
+            .collection('news')
+            .where('authorId', isEqualTo: user.uid)
             .snapshots(),
-        builder: (context, snapshot) {
-          int courseCount = 0;
-          if (snapshot.hasData) {
-            courseCount = snapshot.data!.docs.length;
+        builder: (context, newsSnapshot) {
+          // Count of news posts by this lecturer
+          int newsCount = 0;
+          if (newsSnapshot.hasData) {
+            newsCount = newsSnapshot.data!.docs.length;
           }
 
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem(
-                    icon: Icons.menu_book,
-                    value: courseCount.toString(),
-                    label: "Courses",
-                    color: Colors.blue,
+          return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('news')
+                  .where('authorId', isEqualTo: user.uid)
+                  .where('featured', isEqualTo: true)
+                  .snapshots(),
+              builder: (context, featuredSnapshot) {
+                // Count of featured news posts by this lecturer
+                int featuredCount = 0;
+                if (featuredSnapshot.hasData) {
+                  featuredCount = featuredSnapshot.data!.docs.length;
+                }
+
+                return Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  _buildDivider(),
-                  _buildStatItem(
-                    icon: Icons.watch_later,
-                    value: "24h",
-                    label: "Availability",
-                    color: Colors.orange,
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          icon: Icons.newspaper,
+                          value: newsCount.toString(),
+                          label: "Posts",
+                          color: Colors.blue,
+                        ),
+                        _buildDivider(),
+                        _buildStatItem(
+                          icon: Icons.star,
+                          value: featuredCount.toString(),
+                          label: "Featured",
+                          color: Colors.amber,
+                        ),
+                        _buildDivider(),
+                        _buildInfoStatItem(
+                          icon: Icons.post_add,
+                          label: "Create News",
+                          color: Colors.green,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ManageNewsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  _buildDivider(),
-                  _buildStatItem(
-                    icon: Icons.star,
-                    value: "4.8",
-                    label: "Rating",
-                    color: Colors.amber,
-                  ),
-                ],
-              ),
-            ),
-          );
+                );
+              });
         });
+  }
+
+  // New method for interactive statistics item
+  Widget _buildInfoStatItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDivider() {
@@ -308,7 +368,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
@@ -317,11 +377,17 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
               color: Colors.grey.shade700,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         ],

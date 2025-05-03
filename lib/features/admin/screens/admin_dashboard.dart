@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'dart:math';
+import 'package:flutter/services.dart';
 import '../../auth/provider/user_provider.dart';
 import 'manage_users_screen.dart';
-import 'admin_broadcasts_screen.dart';
+import '../presentation/news/news_list_screen.dart'; // Added news list screen import
 import 'manage_result_screen.dart';
 import 'system_stats_screen.dart';
 import 'matric_verification/matric_verification_screen.dart';
 import 'course_assignment_screen.dart'; // Added import for the course assignment screen
+import 'lecturer_id_management_screen.dart'; // Import for lecturer ID management screen
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -67,8 +70,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   label: Text('Manage Results'),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.campaign),
-                  label: Text('Announcements'),
+                  icon: Icon(Icons
+                      .newspaper_rounded), // Changed icon from campaign to newspaper
+                  label: Text('News'), // Changed label from Broadcasts to News
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.badge),
@@ -209,8 +213,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           label: 'Results',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.campaign_rounded),
-          label: 'Broadcasts',
+          icon: Icon(Icons
+              .newspaper_rounded), // Changed icon from campaign to newspaper
+          label: 'News', // Changed label from Broadcasts to News
         ),
       ],
     );
@@ -264,8 +269,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildDrawerItem(1, 'Manage Users', Icons.people),
           _buildDrawerItem(2, 'Course Assignment', Icons.book),
           _buildDrawerItem(3, 'Manage Results', Icons.assignment),
-          _buildDrawerItem(4, 'Announcements', Icons.campaign),
+          _buildDrawerItem(
+              4,
+              'News',
+              Icons
+                  .newspaper), // Changed from Announcements to News with new icon
           _buildDrawerItem(5, 'Matric Verification', Icons.badge),
+          ListTile(
+            leading: const Icon(Icons.vpn_key),
+            title: const Text('Lecturer IDs'),
+            onTap: () {
+              Navigator.pop(context); // Close the drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LecturerIdManagementScreen(),
+                ),
+              );
+            },
+          ),
           _buildDrawerItem(6, 'System Settings', Icons.settings),
           const Divider(),
           ListTile(
@@ -314,7 +336,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 3:
         return 'Manage Results';
       case 4:
-        return 'Announcements';
+        return 'News Management'; // Changed from Announcements to News Management
       case 5:
         return 'Matric Verification';
       case 6:
@@ -336,7 +358,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 3:
         return const ManageResultScreen();
       case 4:
-        return const AdminBroadcastsScreen();
+        return const NewsListScreen(); // Changed from AdminBroadcastsScreen to NewsListScreen
       case 5:
         return const MatricVerificationScreen();
       case 6:
@@ -629,10 +651,10 @@ class DashboardHome extends StatelessWidget {
       children: [
         _buildQuickActionButton(
           context,
-          icon: Icons.campaign,
-          label: 'New Announcement',
+          icon: Icons.newspaper, // Changed from campaign to newspaper
+          label: 'Create News', // Changed from New Announcement to Create News
           onTap: () {
-            // Navigate to create announcement
+            // Navigate to create news
           },
         ),
         _buildQuickActionButton(
@@ -651,10 +673,15 @@ class DashboardHome extends StatelessWidget {
         ),
         _buildQuickActionButton(
           context,
-          icon: Icons.book,
-          label: 'Add Course',
+          icon: Icons.vpn_key,
+          label: 'Lecturer IDs',
           onTap: () {
-            // Navigate to add course
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LecturerIdManagementScreen(),
+              ),
+            );
           },
         ),
         _buildQuickActionButton(
@@ -669,6 +696,7 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
+  // Helper method to build quick action button
   Widget _buildQuickActionButton(
     BuildContext context, {
     required IconData icon,
@@ -677,32 +705,354 @@ class DashboardHome extends StatelessWidget {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 32,
-              color: Colors.blue,
+              size: 28,
+              color: Theme.of(context).primaryColor,
             ),
             const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
                 fontWeight: FontWeight.w500,
+                color: Colors.grey[800],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Lecturer ID Generation Dialog
+  void _showLecturerIdGenerationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        // Form controllers
+        final nameController = TextEditingController();
+        final departmentController = TextEditingController();
+        final emailController = TextEditingController();
+
+        return AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.vpn_key, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Generate Lecturer ID'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Generate a unique ID that will be required for lecturer registration. This ID will be linked to the lecturer\'s details for verification.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Lecturer Name',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: departmentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Department',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.business),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty &&
+                    departmentController.text.isNotEmpty &&
+                    emailController.text.isNotEmpty) {
+                  _generateLecturerId(
+                    context,
+                    nameController.text,
+                    departmentController.text,
+                    emailController.text,
+                  );
+                  Navigator.pop(context);
+                } else {
+                  // Show error for empty fields
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill all fields')),
+                  );
+                }
+              },
+              child: const Text('GENERATE ID'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Generate lecturer ID and save to Firestore
+  void _generateLecturerId(
+      BuildContext context, String name, String department, String email) {
+    // Generate a unique lecturer ID (you can customize this format)
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final deptCode =
+        department.substring(0, min(3, department.length)).toUpperCase();
+    final randomCode =
+        (100 + Random().nextInt(900)).toString(); // 3-digit random number
+
+    // Format: DEPT-RANDOM-TIMESTAMP (shortened for readability)
+    final lecturerId = 'LEC-$deptCode-$randomCode-${(timestamp % 10000)}';
+
+    // Save to Firestore
+    FirebaseFirestore.instance.collection('lecturer_ids').add({
+      'id': lecturerId,
+      'name': name,
+      'department': department,
+      'email': email,
+      'isUsed': false,
+      'generatedAt': FieldValue.serverTimestamp(),
+      'validUntil': Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: 30)), // Valid for 30 days
+      ),
+    }).then((_) {
+      // Show success dialog with the generated ID
+      _showGeneratedIdDialog(context, lecturerId, email);
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating ID: $error')),
+      );
+    });
+  }
+
+  // Show dialog with the generated ID
+  void _showGeneratedIdDialog(
+      BuildContext context, String lecturerId, String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Lecturer ID Generated'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'The following ID has been generated and is valid for 30 days:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      lecturerId,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    tooltip: 'Copy to clipboard',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: lecturerId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('ID copied to clipboard')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Please provide this ID to the lecturer. They will need to enter it during registration.',
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('CLOSE'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Here you could implement email sending functionality
+              // For now, just show a success message
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content:
+                        Text('ID sharing feature will be implemented soon')),
+              );
+            },
+            child: const Text('SHARE ID'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // View all generated lecturer IDs (add this method to make the feature complete)
+  void _viewLecturerIds(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('Lecturer ID Management')),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('lecturer_ids')
+                .orderBy('generatedAt', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+
+              final ids = snapshot.data?.docs ?? [];
+
+              if (ids.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.vpn_key_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No lecturer IDs have been generated yet'),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: ids.length,
+                itemBuilder: (context, index) {
+                  final idData = ids[index].data() as Map<String, dynamic>;
+                  final isUsed = idData['isUsed'] ?? false;
+                  final validUntil = idData['validUntil'] as Timestamp?;
+                  final isExpired = validUntil != null &&
+                      validUntil.toDate().isBefore(DateTime.now());
+
+                  return ListTile(
+                    title: Text(idData['name'] ?? 'Unknown'),
+                    subtitle: Text(
+                      '${idData['id']} - ${idData['department']}',
+                      style: TextStyle(
+                        color: isExpired ? Colors.red : null,
+                        decoration:
+                            isExpired ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: isUsed
+                          ? Colors.green.withOpacity(0.1)
+                          : isExpired
+                              ? Colors.red.withOpacity(0.1)
+                              : Colors.blue.withOpacity(0.1),
+                      child: Icon(
+                        isUsed
+                            ? Icons.check
+                            : isExpired
+                                ? Icons.timer_off
+                                : Icons.vpn_key,
+                        color: isUsed
+                            ? Colors.green
+                            : isExpired
+                                ? Colors.red
+                                : Colors.blue,
+                      ),
+                    ),
+                    trailing: Text(
+                      isUsed
+                          ? 'Used'
+                          : isExpired
+                              ? 'Expired'
+                              : 'Active',
+                      style: TextStyle(
+                        color: isUsed
+                            ? Colors.green
+                            : isExpired
+                                ? Colors.red
+                                : Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              _showLecturerIdGenerationDialog(context);
+            },
+            child: const Icon(Icons.add),
+            tooltip: 'Generate New ID',
+          ),
         ),
       ),
     );
