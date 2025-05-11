@@ -81,11 +81,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 .where('recipientId', isEqualTo: userId)
                 .where('read', isEqualTo: false)
                 .orderBy('timestamp', descending: true)
+                .orderBy(FieldPath.documentId,
+                    descending:
+                        true) // Explicitly include __name__ in the ordering
                 .snapshots()
             : FirebaseFirestore.instance
                 .collection('notifications')
                 .where('recipientId', isEqualTo: userId)
                 .orderBy('timestamp', descending: true)
+                .orderBy(FieldPath.documentId,
+                    descending:
+                        true) // Explicitly include __name__ in the ordering
                 .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -93,6 +99,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           }
 
           if (snapshot.hasError) {
+            // Check if error is related to Firestore index
+            final errorMsg = snapshot.error.toString();
+            if (errorMsg.contains('FAILED_PRECONDITION') &&
+                errorMsg.contains('index')) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.hourglass_bottom, color: Colors.amber, size: 48),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Setting up notifications...",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "We're preparing your notifications. This should only take a minute or two.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const CircularProgressIndicator(),
+                  ],
+                ),
+              );
+            }
             return Center(
                 child: Text('Error: ${snapshot.error}',
                     style: const TextStyle(color: Colors.red)));

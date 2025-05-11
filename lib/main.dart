@@ -5,6 +5,7 @@ import 'package:student_management/features/admin/screens/admin_dashboard.dart';
 import 'package:student_management/features/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:student_management/firebase_options.dart';
+import 'package:student_management/core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/registration_screen.dart';
 import 'features/auth/provider/auth_provider.dart';
@@ -37,9 +38,9 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF3E64FF),
-            primary: const Color(0xFF3E64FF),
-            secondary: const Color(0xFF5EDFFF),
+            seedColor: const Color(0xFF4CAF50), // Changed to green
+            primary: const Color(0xFF4CAF50), // Changed to green
+            secondary: const Color(0xFF81C784), // Lighter green
             tertiary: const Color(0xFFFF886E),
             background: const Color(0xFFF5F7FA),
             surface: Colors.white,
@@ -48,7 +49,7 @@ class MyApp extends StatelessWidget {
           appBarTheme: AppBarTheme(
             elevation: 0,
             centerTitle: true,
-            backgroundColor: const Color(0xFF3E64FF),
+            backgroundColor: const Color(0xFF4CAF50), // Changed to green
             foregroundColor: Colors.white,
             titleTextStyle: GoogleFonts.poppins(
               fontSize: 20,
@@ -63,12 +64,11 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             color: Colors.white,
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
+          ),          elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              backgroundColor: const Color(0xFF3E64FF),
+              backgroundColor: const Color(0xFF4CAF50), // Changed to green
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -78,24 +78,22 @@ class MyApp extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
+          ),          outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF3E64FF), width: 1.5),
+              side: const BorderSide(color: Color(0xFF4CAF50), width: 1.5), // Changed to green
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              foregroundColor: const Color(0xFF3E64FF),
+              foregroundColor: const Color(0xFF4CAF50), // Changed to green
               textStyle: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          textButtonTheme: TextButtonThemeData(
+          ),          textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF3E64FF),
+              foregroundColor: const Color(0xFF4CAF50), // Changed to green
               textStyle: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -117,11 +115,10 @@ class MyApp extends StatelessWidget {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
+            ),            focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide:
-                  const BorderSide(color: Color(0xFF3E64FF), width: 1.5),
+                  const BorderSide(color: Color(0xFF4CAF50), width: 1.5), // Changed to green
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

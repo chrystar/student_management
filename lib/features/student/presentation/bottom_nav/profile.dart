@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../auth/provider/user_provider.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class StudentProfileTab extends StatefulWidget {
   const StudentProfileTab({super.key});
@@ -67,7 +68,7 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: const BoxDecoration(
-              color: Color(0xFF3E64FF),
+              color: AppTheme.primaryColor,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -113,7 +114,7 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF3E64FF),
+                              color: AppTheme.primaryColor,
                             ),
                           ),
                         ),
@@ -169,7 +170,6 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
               child: Column(
                 children: [
                   // Stats section
-                  _buildStatsSection(user),
 
                   const SizedBox(height: 24),
 
@@ -204,54 +204,6 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
     );
   }
 
-  Widget _buildStatsSection(user) {
-    return StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('course_registrations')
-            .where('studentId', isEqualTo: user.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          int courseCount = 0;
-          if (snapshot.hasData) {
-            courseCount = snapshot.data!.docs.length;
-          }
-
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem(
-                    icon: Icons.menu_book,
-                    value: courseCount.toString(),
-                    label: "Courses",
-                    color: Colors.green,
-                  ),
-                  _buildDivider(),
-                  _buildStatItem(
-                    icon: Icons.assignment_turned_in,
-                    value: "85%",
-                    label: "Attendance",
-                    color: Colors.orange,
-                  ),
-                  _buildDivider(),
-                  _buildStatItem(
-                    icon: Icons.school,
-                    value: "3.8",
-                    label: "CGPA",
-                    color: Colors.purple,
-                  ),
-                ],
-              ),
-            ),
-          );
-        });
-  }
 
   Widget _buildDivider() {
     return Container(
@@ -316,7 +268,7 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
               children: [
                 Icon(
                   icon,
-                  color: const Color(0xFF3E64FF),
+                  color: AppTheme.primaryColor,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -325,7 +277,7 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF3E64FF),
+                    color: AppTheme.primaryColor,
                   ),
                 ),
               ],
@@ -417,7 +369,7 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
           children: [
             Icon(
               icon,
-              color: const Color(0xFF3E64FF),
+              color: AppTheme.primaryColor,
               size: 22,
             ),
             const SizedBox(width: 16),
@@ -460,7 +412,6 @@ class _StudentProfileTabState extends State<StudentProfileTab> {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       userProvider.logout();
-      Navigator.of(context).pop(); // Close the bottom sheet
       Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

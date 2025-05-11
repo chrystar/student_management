@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:student_management/core/theme/app_theme.dart';
 import '../../../auth/provider/user_provider.dart';
 import 'package:student_management/features/admin/presentation/news/manage_news_screen.dart';
 
@@ -30,7 +31,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF3E64FF),
+        backgroundColor: AppTheme.primaryColor,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -68,7 +69,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
               },
               child: const CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Icon(Icons.person, color: Color(0xFF3E64FF)),
+                child: Icon(Icons.person, color: AppTheme.primaryColor),
               ),
             ),
           ),
@@ -88,14 +89,6 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
               _buildInfoOverview(),
 
               const SizedBox(height: 24),
-
-              // Quick Actions
-              _buildSectionHeader('Quick Actions'),
-              const SizedBox(height: 12),
-              _buildQuickActions(),
-
-              const SizedBox(height: 24),
-
               // Recent News
               _buildSectionHeader('Recent News'),
               const SizedBox(height: 12),
@@ -134,7 +127,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
             child: const Text(
               'See All',
               style: TextStyle(
-                color: Color(0xFF3E64FF),
+                color: AppTheme.primaryColor,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -158,7 +151,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF3E64FF), Color(0xFF5A7BFF)],
+              colors: [AppTheme.primaryColor, AppTheme.primaryColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -263,72 +256,6 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      children: [
-        _buildActionCard(
-          icon: Icons.post_add,
-          title: 'Create News',
-          color: const Color(0xFF4CAF50),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ManageNewsScreen(),
-              ),
-            );
-          },
-        ),
-        _buildActionCard(
-          icon: Icons.star,
-          title: 'Featured News',
-          color: const Color(0xFFFFA726),
-          onTap: () {
-            // Navigate to featured news
-          },
-        ),
-        _buildActionCard(
-          icon: Icons.category,
-          title: 'Categories',
-          color: const Color(0xFF9C27B0),
-          onTap: () {
-            // Navigate to categories
-          },
-        ),
-        _buildActionCard(
-          icon: Icons.people,
-          title: 'Audience',
-          color: const Color(0xFF607D8B),
-          onTap: () {
-            // Navigate to target audience management
-          },
-        ),
-        _buildActionCard(
-          icon: Icons.analytics,
-          title: 'Analytics',
-          color: const Color(0xFF00BCD4),
-          onTap: () {
-            // Navigate to news analytics
-          },
-        ),
-        _buildActionCard(
-          icon: Icons.help_outline,
-          title: 'Help',
-          color: const Color(0xFF795548),
-          onTap: () {
-            // Show help dialog
-            _showHelpDialog();
-          },
-        ),
-      ],
     );
   }
 
@@ -784,7 +711,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'General':
-        return Colors.blue;
+        return AppTheme.primaryColor;
       case 'Academic':
         return Colors.green;
       case 'School Events':
@@ -794,7 +721,7 @@ class _LecturerHomeTabState extends State<LecturerHomeTab> {
       case 'Faculty News':
         return Colors.teal;
       case 'Sports':
-        return Colors.red;
+        return AppTheme.secondaryColor;
       case 'Deadlines':
         return Colors.amber.shade800;
       default:

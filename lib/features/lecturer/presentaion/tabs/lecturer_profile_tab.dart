@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:student_management/core/theme/app_theme.dart';
 import '../../../auth/provider/user_provider.dart';
 import 'package:student_management/features/admin/presentation/news/manage_news_screen.dart';
 
@@ -34,7 +35,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF3E64FF),
+        backgroundColor: AppTheme.primaryColor,
         title: Text(
           "Profile",
           style: TextStyle(
@@ -56,7 +57,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
             // Profile header
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF3E64FF),
+                color: AppTheme.primaryColor,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
@@ -93,7 +94,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
                               style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF3E64FF),
+                                color: AppTheme.primaryColor,
                               ),
                             ),
                           ),
@@ -342,7 +343,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
               children: [
                 Icon(
                   icon,
-                  color: const Color(0xFF3E64FF),
+                  color: AppTheme.primaryColor,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -351,7 +352,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF3E64FF),
+                    color: AppTheme.primaryColor,
                   ),
                 ),
               ],
@@ -460,7 +461,7 @@ class _LecturerProfileTabState extends State<LecturerProfileTab> {
           children: [
             Icon(
               icon,
-              color: const Color(0xFF3E64FF),
+              color: AppTheme.primaryColor,
               size: 22,
             ),
             const SizedBox(width: 16),

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:student_management/core/theme/app_theme.dart';
 import 'auth/provider/user_provider.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -73,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF3E64FF),
+      backgroundColor: AppTheme.primaryColor,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -109,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Icon(
                       Icons.school_rounded,
                       size: 70,
-                      color: Color(0xFF3E64FF),
+                      color: AppTheme.primaryColor,
                     ),
                   ),
                 ),

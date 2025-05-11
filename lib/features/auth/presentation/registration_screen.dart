@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../provider/auth_provider.dart';
 import 'login_screen.dart';
 import 'student_verification_screen.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_extension.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -201,7 +203,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               LinearProgressIndicator(
                 value: (_currentPage + 1) / 2,
                 backgroundColor: Colors.grey.shade200,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
               ),
               Expanded(
                 child: PageView(
@@ -354,7 +357,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ElevatedButton(
               onPressed: _isVerifyingLecturerId ? null : _verifyLecturerId,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 15),
               ),
               child: _isVerifyingLecturerId
@@ -381,7 +384,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: ElevatedButton(
               onPressed: _nextPage,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 15),
               ),
               child: const Text('Next', style: TextStyle(color: Colors.white)),
@@ -396,7 +399,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             },
             child: const Text(
               'Already have an account? Sign in here',
-              style: TextStyle(color: Colors.blue),
+              style: TextStyle(color: AppTheme.primaryColor),
             ),
           ),
           const SizedBox(height: 16),
@@ -477,12 +480,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               TextButton(
                 onPressed: _previousPage,
-                child: const Text('Back', style: TextStyle(color: Colors.blue)),
+                child: const Text('Back',
+                    style: TextStyle(color: AppTheme.primaryColor)),
               ),
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleRegistration,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppTheme.primaryColor,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),

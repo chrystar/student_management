@@ -320,8 +320,8 @@ class _CourseRegistrationState extends State<CourseRegistration>
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Theme.of(context).primaryColor,
-          unselectedLabelColor: Colors.grey.shade600,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.grey.shade400,
           indicatorColor: Theme.of(context).primaryColor,
           tabs: const [
             Tab(text: 'Available Courses'),

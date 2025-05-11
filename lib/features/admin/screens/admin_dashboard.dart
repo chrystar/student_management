@@ -191,7 +191,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         });
       },
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.blue,
+      selectedItemColor: Colors.green,
       unselectedItemColor: Colors.grey,
       showUnselectedLabels: false,
       showSelectedLabels: false,
@@ -229,7 +229,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
-              color: Colors.blue,
+              color: Colors.green,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +240,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: Colors.blue.shade800,
+                      color: Colors.green.shade800,
                       fontWeight: FontWeight.bold,
                       fontSize: 24,
                     ),
@@ -306,13 +306,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // Helper method to build drawer items
   Widget _buildDrawerItem(int index, String title, IconData icon) {
     return ListTile(
-      leading: Icon(icon, color: _selectedIndex == index ? Colors.blue : null),
+      leading: Icon(icon, color: _selectedIndex == index ? Colors.green : null),
       title: Text(
         title,
         style: TextStyle(
           fontWeight:
               _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
-          color: _selectedIndex == index ? Colors.blue : null,
+          color: _selectedIndex == index ? Colors.green : null,
         ),
       ),
       selected: _selectedIndex == index,
@@ -440,7 +440,7 @@ class DashboardHome extends StatelessWidget {
           title: 'Total Students',
           count: 0,
           icon: Icons.school,
-          color: Colors.blue,
+          color: Colors.green,
           stream: FirebaseFirestore.instance
               .collection('users')
               .where('role', isEqualTo: 'Student')
@@ -451,7 +451,7 @@ class DashboardHome extends StatelessWidget {
           title: 'Total Lecturers',
           count: 0,
           icon: Icons.person,
-          color: Colors.blue,
+          color: Colors.green,
           stream: FirebaseFirestore.instance
               .collection('users')
               .where('role', isEqualTo: 'Lecturer')
@@ -462,7 +462,7 @@ class DashboardHome extends StatelessWidget {
           title: 'Active Courses',
           count: 0,
           icon: Icons.book,
-          color: Colors.blue,
+          color: Colors.green,
           stream: FirebaseFirestore.instance.collection('courses').snapshots(),
         ),
       ],
@@ -602,15 +602,14 @@ class DashboardHome extends StatelessWidget {
   Widget _getActivityIcon(String type) {
     IconData icon;
     Color color;
-
     switch (type) {
       case 'attendance':
         icon = Icons.calendar_today;
-        color = Colors.blue;
+        color = Colors.green;
         break;
       case 'submission':
         icon = Icons.assignment_turned_in;
-        color = Colors.blue;
+        color = Colors.green;
         break;
       case 'exam':
         icon = Icons.quiz;
@@ -663,6 +662,12 @@ class DashboardHome extends StatelessWidget {
           label: 'Add User',
           onTap: () {
             // Navigate to add user
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ManageUsersScreen(),
+              ),
+            );
           },
         ),
         _buildQuickActionButton(
@@ -756,7 +761,7 @@ class DashboardHome extends StatelessWidget {
         return AlertDialog(
           title: Row(
             children: const [
-              Icon(Icons.vpn_key, color: Colors.blue),
+              Icon(Icons.vpn_key, color: Colors.green),
               SizedBox(width: 8),
               Text('Generate Lecturer ID'),
             ],
@@ -1012,7 +1017,7 @@ class DashboardHome extends StatelessWidget {
                           ? Colors.green.withOpacity(0.1)
                           : isExpired
                               ? Colors.red.withOpacity(0.1)
-                              : Colors.blue.withOpacity(0.1),
+                              : Colors.green.withOpacity(0.1),
                       child: Icon(
                         isUsed
                             ? Icons.check
@@ -1023,7 +1028,7 @@ class DashboardHome extends StatelessWidget {
                             ? Colors.green
                             : isExpired
                                 ? Colors.red
-                                : Colors.blue,
+                                : Colors.green,
                       ),
                     ),
                     trailing: Text(
@@ -1037,7 +1042,7 @@ class DashboardHome extends StatelessWidget {
                             ? Colors.green
                             : isExpired
                                 ? Colors.red
-                                : Colors.blue,
+                                : Colors.green,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
