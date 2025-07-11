@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:student_management/features/admin/screens/admin_dashboard.dart';
-import 'package:student_management/features/splash_screen.dart';
+import 'package:student_management/features/splash_screen_fixed.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:student_management/firebase_options.dart';
 import 'package:student_management/core/theme/app_theme.dart';
@@ -15,9 +15,17 @@ import 'features/student/presentation/student_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print("Firebase initialized successfully");
+  } catch (e) {
+    print("Error initializing Firebase: $e");
+    // Continue with the app even if Firebase fails, but user won't be able to log in
+  }
+  
   runApp(const MyApp());
 }
 
@@ -131,8 +139,7 @@ class MyApp extends StatelessWidget {
             hintStyle: TextStyle(color: Colors.grey.shade400),
             floatingLabelBehavior: FloatingLabelBehavior.never,
           ),
-        ),
-        initialRoute: '/',
+        ),        initialRoute: '/',
         routes: {
           '/': (context) => const SplashScreen(),
           '/login': (context) => const LoginScreen(),

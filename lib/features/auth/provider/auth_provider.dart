@@ -168,7 +168,6 @@ class AuthProvider with ChangeNotifier {
       return null;
     }
   }
-
   // Add a method to verify matric number after registration
   Future<String?> verifyMatricNumber({
     required String matricNumber,
@@ -193,7 +192,7 @@ class AuthProvider with ChangeNotifier {
         return 'This matric number is already in use by another account.';
       }
 
-      // Update the matric number in user's document and mark as used
+      // Update the matric number in user's document and mark as verified
       await _firestore.collection('users').doc(userId).update({
         'matricNumber': matricNumber.trim().toUpperCase(),
         'isVerified': true,
@@ -220,22 +219,40 @@ class AuthProvider with ChangeNotifier {
     required String password,
   }) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('matricNumber', isEqualTo: matricNumber)
-          .limit(1)
+      // First, check if matric number exists in valid_matric_numbers collection
+      final validMatricQuery = await _firestore
+          .collection('valid_matric_numbers')
+          .where('matricNumber', isEqualTo: matricNumber.trim().toUpperCase())
           .get();
 
-      if (snapshot.docs.isEmpty) return "Matric number not found";
+      if (validMatricQuery.docs.isEmpty) {
+        return "Invalid matric number. Please contact administration.";
+      }
 
-      final email = snapshot.docs.first['email'];
+      final matricData = validMatricQuery.docs.first.data();
+      final isUsed = matricData['isUsed'] ?? false;
+      
+      if (!isUsed) {
+        return "Matric number not yet verified. Please complete registration first.";
+      }
+
+      // Get the associated email from the matric number document
+      final userEmail = matricData['userEmail'] as String?;
+      
+      if (userEmail == null) {
+        return "No email associated with this matric number. Please contact support.";
+      }
+
+      // Use the email to sign in
       await _auth.signInWithEmailAndPassword(
-        email: email,
+        email: userEmail,
         password: password,
       );
       return null;
     } on FirebaseAuthException catch (e) {
       return e.message;
+    } catch (e) {
+      return "Login failed: ${e.toString()}";
     }
   }
 

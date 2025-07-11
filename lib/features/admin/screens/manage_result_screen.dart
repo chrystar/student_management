@@ -23,6 +23,7 @@ class _ManageResultScreenState extends State<ManageResultScreen> {
   List<String> courses = [];
   List<Map<String, dynamic>> students = [];
   final formKey = GlobalKey<FormState>();
+  bool _isBulkSaving = false;
 
   @override
   void initState() {
@@ -75,7 +76,7 @@ class _ManageResultScreenState extends State<ManageResultScreen> {
     try {
       final studentsSnapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'student')
+          .where('role', isEqualTo: 'Student') // Changed from 'student' to 'Student'
           .where('department', isEqualTo: selectedDepartment)
           .where('level', isEqualTo: selectedLevel)
           .get();
@@ -104,59 +105,100 @@ class _ManageResultScreenState extends State<ManageResultScreen> {
     }
   }
 
-  String calculateGrade(int score) {
-    if (score >= 70) return 'A';
-    if (score >= 60) return 'B';
-    if (score >= 50) return 'C';
-    if (score >= 45) return 'D';
-    if (score >= 40) return 'E';
-    return 'F';
+  Future<void> saveStudentResult(Map<String, dynamic> student) async {
+    if (selectedCourse == null) return;
+
+    try {
+      final resultRef = FirebaseFirestore.instance
+          .collection('results')
+          .doc('${student['id']}_${selectedCourse}');
+
+      await resultRef.set({
+        'studentId': student['id'],
+        'studentName': student['name'],
+        'matricNumber': student['matricNumber'],
+        'department': selectedDepartment,
+        'level': selectedLevel,
+        'course': selectedCourse,
+        'score': student['score'],
+        'grade': student['grade'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Result saved successfully')),
+      );
+    } catch (e) {
+      print('Error saving result: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save result: $e')),
+      );
+    }
   }
 
-  Future<void> saveResults() async {
-    if (!formKey.currentState!.validate()) return;
+  // Bulk save all results at once
+  Future<void> bulkSaveResults() async {
+    if (selectedCourse == null || students.isEmpty) return;
 
     setState(() {
-      isLoading = true;
+      _isBulkSaving = true;
     });
 
     try {
       final batch = FirebaseFirestore.instance.batch();
+      int savedCount = 0;
 
-      for (var student in students) {
-        final resultRef =
-            FirebaseFirestore.instance.collection('results').doc();
-        batch.set(resultRef, {
-          'studentId': student['id'],
-          'studentName': student['name'],
-          'matricNumber': student['matricNumber'],
-          'department': selectedDepartment,
-          'level': selectedLevel,
-          'course': selectedCourse,
-          'score': student['score'],
-          'grade': student['grade'],
-          'timestamp': FieldValue.serverTimestamp(),
-        });
+      for (final student in students) {
+        if (student['score'] > 0) { // Only save students with scores
+          final resultRef = FirebaseFirestore.instance
+              .collection('results')
+              .doc('${student['id']}_${selectedCourse}');
+
+          batch.set(resultRef, {
+            'studentId': student['id'],
+            'studentName': student['name'],
+            'matricNumber': student['matricNumber'],
+            'department': selectedDepartment,
+            'level': selectedLevel,
+            'course': selectedCourse,
+            'score': student['score'],
+            'grade': student['grade'],
+            'semester': _getCurrentSemester(),
+            'academicYear': _getCurrentAcademicYear(),
+            'uploadedBy': 'Admin', // You can get actual admin name if needed
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          savedCount++;
+        }
       }
 
       await batch.commit();
 
-      setState(() {
-        isLoading = false;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Results uploaded successfully')),
+        SnackBar(content: Text('Successfully saved $savedCount results')),
       );
     } catch (e) {
-      print('Error saving results: $e');
-      setState(() {
-        isLoading = false;
-      });
+      print('Error bulk saving results: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload results: $e')),
+        SnackBar(content: Text('Failed to save results: $e')),
       );
+    } finally {
+      setState(() {
+        _isBulkSaving = false;
+      });
     }
+  }
+
+  // Helper methods for semester and academic year
+  String _getCurrentSemester() {
+    final month = DateTime.now().month;
+    return month >= 9 || month <= 1 ? 'First Semester' : 'Second Semester';
+  }
+
+  String _getCurrentAcademicYear() {
+    final year = DateTime.now().year;
+    final month = DateTime.now().month;
+    return month >= 9 ? '$year/${year + 1}' : '${year - 1}/$year';
   }
 
   @override
@@ -166,348 +208,294 @@ class _ManageResultScreenState extends State<ManageResultScreen> {
         title: const Text('Manage Student Results'),
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Select Course Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(constraints.maxWidth * 0.02),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: LayoutBuilder(
+                        builder: (context, cardConstraints) {
+                          final isWideScreen = cardConstraints.maxWidth >= 600;
+                          return Column(
+                            children: [
+                              if (isWideScreen)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: selectedDepartment,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Department'),
+                                        items: departments.map((dept) {
+                                          return DropdownMenuItem(
+                                            value: dept,
+                                            child: Text(dept),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            selectedDepartment = value;
+                                            selectedCourse = null;
+                                            courses.clear();
+                                            fetchCourses();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    SizedBox(
+                                        width: cardConstraints.maxWidth * 0.02),
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: selectedLevel,
+                                        decoration:
+                                            const InputDecoration(labelText: 'Level'),
+                                        items: levels.map((level) {
+                                          return DropdownMenuItem(
+                                            value: level,
+                                            child: Text(level),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            selectedLevel = value;
+                                            selectedCourse = null;
+                                            courses.clear();
+                                            fetchCourses();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Column(
+                                  children: [
+                                    DropdownButtonFormField<String>(
+                                      value: selectedDepartment,
+                                      decoration: const InputDecoration(
+                                          labelText: 'Department'),
+                                      items: departments.map((dept) {
+                                        return DropdownMenuItem(
+                                          value: dept,
+                                          child: Text(dept),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedDepartment = value;
+                                          selectedCourse = null;
+                                          courses.clear();
+                                          fetchCourses();
+                                        });
+                                      },
+                                    ),
+                                    SizedBox(height: 16),
+                                    DropdownButtonFormField<String>(
+                                      value: selectedLevel,
+                                      decoration: const InputDecoration(
+                                          labelText: 'Level'),
+                                      items: levels.map((level) {
+                                        return DropdownMenuItem(
+                                          value: level,
+                                          child: Text(level),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedLevel = value;
+                                          selectedCourse = null;
+                                          courses.clear();
+                                          fetchCourses();
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              SizedBox(height: 16),
+                              DropdownButtonFormField<String>(
+                                value: selectedCourse,
+                                decoration: const InputDecoration(labelText: 'Course'),
+                                items: courses.map((course) {
+                                  return DropdownMenuItem(
+                                    value: course,
+                                    child: Text(course),
+                                  );
+                                }).toList(),
+                                onChanged: courses.isEmpty ? null : (value) {
+                                  setState(() {
+                                    selectedCourse = value;
+                                    fetchStudents();
+                                  });
+                                },
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(
-                              labelText: 'Department',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                            ),
-                            value: selectedDepartment,
-                            items: departments.map((dept) {
-                              return DropdownMenuItem(
-                                value: dept,
-                                child: Text(dept),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedDepartment = value;
-                                selectedCourse = null;
-                                courses = [];
-                              });
-                              fetchCourses();
-                            },
-                          ),
+                  ),
+                  SizedBox(height: constraints.maxHeight * 0.02),
+                  if (isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (students.isNotEmpty) ...[
+                    Card(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('Name')),
+                            DataColumn(label: Text('Matric Number')),
+                            DataColumn(label: Text('Score')),
+                            DataColumn(label: Text('Grade')),
+                            DataColumn(label: Text('Actions')),
+                          ],
+                          rows: students.map((student) {
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(student['name'])),
+                                DataCell(Text(student['matricNumber'])),
+                                DataCell(
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextFormField(
+                                      initialValue: student['score'].toString(),
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      ),
+                                      onChanged: (value) {
+                                        final score = int.tryParse(value) ?? 0;
+                                        setState(() {
+                                          student['score'] = score;
+                                          student['grade'] = calculateGrade(score);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _getGradeColor(student['grade']),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      student['grade'].toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  ElevatedButton(
+                                    onPressed: () => saveStudentResult(student),
+                                    child: const Text('Save'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(
-                              labelText: 'Level',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                            ),
-                            value: selectedLevel,
-                            items: levels.map((level) {
-                              return DropdownMenuItem(
-                                value: level,
-                                child: Text('$level Level'),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedLevel = value;
-                                selectedCourse = null;
-                                courses = [];
-                              });
-                              fetchCourses();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: 'Course',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
-                      value: selectedCourse,
-                      items: courses.map((course) {
-                        return DropdownMenuItem(
-                          value: course,
-                          child: Text(course),
-                        );
-                      }).toList(),
-                      onChanged: courses.isEmpty
-                          ? null
-                          : (value) {
-                              setState(() {
-                                selectedCourse = value;
-                              });
-                              fetchStudents();
-                            },
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : students.isEmpty
-                      ? _buildEmptyState()
-                      : _buildStudentResultList(),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: students.isNotEmpty
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, -4),
+                    SizedBox(height: constraints.maxHeight * 0.02),
+                    // Bulk actions card
+                    Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Bulk Save Results',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _isBulkSaving ? null : bulkSaveResults,
+                              child: _isBulkSaving
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.0,
+                                    )
+                                  : const Text('Save All Results'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ]
+                  else if (selectedDepartment != null && selectedLevel != null)
+                    const Center(
+                      child: Text('No students found for the selected criteria.'),
+                    ),
+                  SizedBox(height: constraints.maxHeight * 0.02),
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Bulk Save Results',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _isBulkSaving ? null : bulkSaveResults,
+                            child: _isBulkSaving
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.0,
+                                  )
+                                : const Text('Save All Results'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: saveResults,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Upload Results',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            )
-          : null,
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.assignment_outlined,
-            size: 80,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No students found',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            selectedDepartment == null || selectedLevel == null
-                ? 'Please select a department and level'
-                : 'No students enrolled for the selected criteria',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStudentResultList() {
-    return Form(
-      key: formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Student',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Matric No',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Score',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Grade',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              itemCount: students.length,
-              separatorBuilder: (context, index) =>
-                  Divider(height: 1, color: Colors.grey[300]),
-              itemBuilder: (context, index) {
-                final student = students[index];
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          student['name'],
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          student['matricNumber'],
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                      ),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: student['score']?.toString() ?? '',
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 8),
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Required';
-                            }
-                            final score = int.tryParse(value);
-                            if (score == null) {
-                              return 'Invalid';
-                            }
-                            if (score < 0 || score > 100) {
-                              return 'Invalid';
-                            }
-                            return null;
-                          },
-                          onChanged: (value) {
-                            final score = int.tryParse(value) ?? 0;
-                            setState(() {
-                              students[index]['score'] = score;
-                              students[index]['grade'] = calculateGrade(score);
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _getGradeColor(student['grade'] ?? ''),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            student['grade'] ?? '-',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+  String calculateGrade(int score) {
+    if (score >= 70) return 'A';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C';
+    if (score >= 45) return 'D';
+    if (score >= 40) return 'E';
+    return 'F';
   }
 
   Color _getGradeColor(String grade) {
     switch (grade) {
       case 'A':
-        return Colors.green[700]!;
+        return Colors.green;
       case 'B':
-        return Colors.blue[700]!;
+        return Colors.lightGreen;
       case 'C':
-        return Colors.orange[700]!;
+        return Colors.yellow[700]!;
       case 'D':
-        return Colors.deepOrange[700]!;
+        return Colors.orange;
       case 'E':
-        return Colors.deepOrange[900]!;
+        return Colors.red[300]!;
       case 'F':
-        return Colors.red[700]!;
+        return Colors.red;
       default:
-        return Colors.grey[600]!;
+        return Colors.grey;
     }
   }
 }

@@ -1,29 +1,22 @@
-{
-  "indexes": [
+{  "indexes": [
     {
-      "collectionGroup": "assignments",
+      "collectionGroup": "news",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "courseId",
+          "fieldPath": "category",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "dueDate",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "student_activities",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "studentId",
+          "fieldPath": "featured",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]
@@ -51,15 +44,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "featured",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "category",
+          "fieldPath": "isGlobal",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]
@@ -69,11 +62,107 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "featured",
+          "fieldPath": "isGlobal",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetDepartments",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "isGlobal",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetDepartments",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "isGlobal",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetDepartments",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetDepartments",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]

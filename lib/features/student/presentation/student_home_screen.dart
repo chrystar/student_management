@@ -40,6 +40,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: _currentIndex != 4
           ? AppBar(
+            automaticallyImplyLeading: false,
               title: Text(
                 _getAppBarTitle(),
                 style: const TextStyle(fontWeight: FontWeight.w600),

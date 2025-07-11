@@ -83,131 +83,159 @@ class _CourseAssignmentScreenState extends State<CourseAssignmentScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Course'),
-        content: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _courseCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Course Code',
-                    hintText: 'e.g., CSC101',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter course code';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _courseTitleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Course Title',
-                    hintText: 'e.g., Introduction to Computer Science',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter course title';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _creditUnitsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Credit Units',
-                    hintText: 'e.g., 3',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter credit units';
-                    }
-                    if (int.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Semester',
-                    border: OutlineInputBorder(),
-                  ),
-                  value: semester,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'First',
-                      child: Text('First Semester'),
+      builder: (context) => Dialog(
+        child: LayoutBuilder(
+          builder: (context, dialogConstraints) {
+            final dialogWidth = dialogConstraints.maxWidth;
+            final isWideDialog = dialogWidth >= 400;
+
+            return Container(
+              width: isWideDialog ? dialogWidth * 0.8 : dialogWidth,
+              padding: EdgeInsets.all(dialogWidth * 0.04),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Add New Course',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    DropdownMenuItem(
-                      value: 'Second',
-                      child: Text('Second Semester'),
+                  ),
+                  SizedBox(height: dialogConstraints.maxHeight * 0.02),
+                  Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextFormField(
+                            controller: _courseCodeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Course Code',
+                              hintText: 'e.g., CSC101',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter course code';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: dialogConstraints.maxHeight * 0.02),
+                          TextFormField(
+                            controller: _courseTitleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Course Title',
+                              hintText: 'e.g., Introduction to Computer Science',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter course title';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: dialogConstraints.maxHeight * 0.02),
+                          TextFormField(
+                            controller: _creditUnitsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Credit Units',
+                              hintText: 'e.g., 3',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter credit units';
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: dialogConstraints.maxHeight * 0.02),
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(
+                              labelText: 'Semester',
+                              border: OutlineInputBorder(),
+                            ),
+                            value: semester,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'First',
+                                child: Text('First Semester'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Second',
+                                child: Text('Second Semester'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              semester = value;
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please select a semester';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                  onChanged: (value) {
-                    semester = value;
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please select a semester';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
+                  ),
+                  SizedBox(height: dialogConstraints.maxHeight * 0.03),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _courseCodeController.clear();
+                          _courseTitleController.clear();
+                          _creditUnitsController.clear();
+                        },
+                        child: const Text('CANCEL'),
+                      ),
+                      SizedBox(width: dialogWidth * 0.02),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState!.validate() &&
+                              selectedDepartment != null &&
+                              selectedLevel != null &&
+                              semester != null) {
+                            _addCourse(
+                              courseCode: _courseCodeController.text.trim(),
+                              courseTitle: _courseTitleController.text.trim(),
+                              creditUnits: int.parse(_creditUnitsController.text.trim()),
+                              semester: semester!,
+                            );
+                            Navigator.of(context).pop();
+                            _courseCodeController.clear();
+                            _courseTitleController.clear();
+                            _creditUnitsController.clear();
+                          } else if (selectedDepartment == null || selectedLevel == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Please select department and level first')),
+                            );
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text('ADD COURSE'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _courseCodeController.clear();
-              _courseTitleController.clear();
-              _creditUnitsController.clear();
-            },
-            child: const Text('CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate() &&
-                  selectedDepartment != null &&
-                  selectedLevel != null &&
-                  semester != null) {
-                _addCourse(
-                  courseCode: _courseCodeController.text.trim(),
-                  courseTitle: _courseTitleController.text.trim(),
-                  creditUnits: int.parse(_creditUnitsController.text.trim()),
-                  semester: semester!,
-                );
-                Navigator.of(context).pop();
-                _courseCodeController.clear();
-                _courseTitleController.clear();
-                _creditUnitsController.clear();
-              } else if (selectedDepartment == null || selectedLevel == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content:
-                          Text('Please select department and level first')),
-                );
-                Navigator.of(context).pop();
-              }
-            },
-            child: const Text('ADD COURSE'),
-          ),
-        ],
       ),
     );
   }
@@ -309,120 +337,181 @@ class _CourseAssignmentScreenState extends State<CourseAssignmentScreen> {
         title: const Text('Course Assignment'),
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Assign Courses to Department & Level',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWideScreen = constraints.maxWidth >= 600;
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(constraints.maxWidth * 0.02),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: EdgeInsets.all(constraints.maxWidth * 0.03),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Assign Courses to Department & Level',
+                            style: TextStyle(
+                              fontSize: isWideScreen ? 20 : 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: constraints.maxHeight * 0.02),                          if (isWideScreen) ...[
+                            IntrinsicHeight(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      decoration: const InputDecoration(
+                                        labelText: 'Department',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 14),
+                                      ),
+                                      value: selectedDepartment,
+                                      items: departments.map((dept) {
+                                        return DropdownMenuItem(
+                                          value: dept,
+                                          child: Text(dept),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedDepartment = value;
+                                        });
+                                        fetchAssignedCourses();
+                                      },
+                                    ),
+                                  ),
+                                  SizedBox(width: constraints.maxWidth * 0.02),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      decoration: const InputDecoration(
+                                        labelText: 'Level',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 14),
+                                      ),
+                                      value: selectedLevel,
+                                      items: levels.map((level) {
+                                        return DropdownMenuItem(
+                                          value: level,
+                                          child: Text('$level Level'),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedLevel = value;
+                                        });
+                                        fetchAssignedCourses();
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[                            Column(
+                              children: [
+                                DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Department',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
+                                  ),
+                                  value: selectedDepartment,
+                                  items: departments.map((dept) {
+                                    return DropdownMenuItem(
+                                      value: dept,
+                                      child: Text(dept),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      selectedDepartment = value;
+                                    });
+                                    fetchAssignedCourses();
+                                  },
+                                ),
+                                SizedBox(height: constraints.maxHeight * 0.02),
+                                DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Level',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
+                                  ),
+                                  value: selectedLevel,
+                                  items: levels.map((level) {
+                                    return DropdownMenuItem(
+                                      value: level,
+                                      child: Text('$level Level'),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      selectedLevel = value;
+                                    });
+                                    fetchAssignedCourses();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                          SizedBox(height: constraints.maxHeight * 0.02),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  selectedDepartment != null && selectedLevel != null
+                                      ? _showAddCourseDialog
+                                      : null,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Course'),
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: constraints.maxHeight * 0.015,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(
-                              labelText: 'Department',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                            ),
-                            value: selectedDepartment,
-                            items: departments.map((dept) {
-                              return DropdownMenuItem(
-                                value: dept,
-                                child: Text(dept),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedDepartment = value;
-                              });
-                              fetchAssignedCourses();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(
-                              labelText: 'Level',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                            ),
-                            value: selectedLevel,
-                            items: levels.map((level) {
-                              return DropdownMenuItem(
-                                value: level,
-                                child: Text('$level Level'),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedLevel = value;
-                              });
-                              fetchAssignedCourses();
-                            },
-                          ),
-                        ),
-                      ],
+                  ),
+                  SizedBox(height: constraints.maxHeight * 0.02),
+                  Text(
+                    'Assigned Courses',
+                    style: TextStyle(
+                      fontSize: isWideScreen ? 18 : 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            selectedDepartment != null && selectedLevel != null
-                                ? _showAddCourseDialog
-                                : null,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Course'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: constraints.maxHeight * 0.01),
+                  SizedBox(
+                    height: constraints.maxHeight * 0.6,
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : assignedCourses.isEmpty
+                            ? _buildEmptyState()
+                            : _buildCourseList(),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Assigned Courses',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : assignedCourses.isEmpty
-                      ? _buildEmptyState()
-                      : _buildCourseList(),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

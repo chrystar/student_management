@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../features/auth/provider/user_provider.dart';
 
 class CourseRegistration extends StatefulWidget {
@@ -15,10 +16,11 @@ class _CourseRegistrationState extends State<CourseRegistration>
   bool isLoading = true;
   List<Map<String, dynamic>> availableCourses = [];
   List<Map<String, dynamic>> registeredCourses = [];
-  late TabController _tabController;
-  String? department;
+  late TabController _tabController;  String? department;
   String? level;
   int totalCreditUnits = 0;
+  String currentSemester = 'First Semester'; // Default value
+  String academicYear = '2024/2025'; // Default value
   final int maxCreditUnits = 24;
   String _debugMessage = '';
 
@@ -225,9 +227,14 @@ class _CourseRegistrationState extends State<CourseRegistration>
 
     setState(() {
       isLoading = true;
-    });
-
-    try {
+    });    try {
+      // First, verify the current user
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("User not authenticated");
+      }
+      
+      // Create registration document with all necessary fields
       await FirebaseFirestore.instance.collection('registrations').add({
         'studentId': user.uid,
         'studentName': user.name,
@@ -235,6 +242,11 @@ class _CourseRegistrationState extends State<CourseRegistration>
         'department': department,
         'level': level,
         'courseId': courseId,
+        'courseCode': courseCode,
+        'creditUnits': creditUnits,
+        'semester': currentSemester,
+        'academicYear': academicYear,
+        'status': 'active',
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -243,13 +255,27 @@ class _CourseRegistrationState extends State<CourseRegistration>
       );
 
       _fetchRegisteredCourses();
+    } on FirebaseException catch (e) {
+      print('Firebase error registering for course: ${e.code} - ${e.message}');
+      setState(() {
+        isLoading = false;
+      });
+      
+      String errorMessage = 'Failed to register for course';
+      if (e.code == 'permission-denied') {
+        errorMessage = 'Permission denied. Please log out and log back in.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     } catch (e) {
       print('Error registering for course: $e');
       setState(() {
         isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to register for course: $e')),
+        SnackBar(content: Text('Failed to register for course')),
       );
     }
   }
@@ -261,6 +287,12 @@ class _CourseRegistrationState extends State<CourseRegistration>
     });
 
     try {
+      // First, verify the current user
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("User not authenticated");
+      }
+      
       await FirebaseFirestore.instance
           .collection('registrations')
           .doc(registrationId)
@@ -275,13 +307,27 @@ class _CourseRegistrationState extends State<CourseRegistration>
       );
 
       _fetchRegisteredCourses();
+    } on FirebaseException catch (e) {
+      print('Firebase error dropping course: ${e.code} - ${e.message}');
+      setState(() {
+        isLoading = false;
+      });
+      
+      String errorMessage = 'Failed to drop course';
+      if (e.code == 'permission-denied') {
+        errorMessage = 'Permission denied. Please log out and log back in.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     } catch (e) {
       print('Error dropping course: $e');
       setState(() {
         isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to drop course: $e')),
+        SnackBar(content: Text('Failed to drop course')),
       );
     }
   }

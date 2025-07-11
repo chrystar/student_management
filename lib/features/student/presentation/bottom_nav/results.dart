@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../auth/provider/user_provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 class Results extends StatefulWidget {
   const Results({super.key});
@@ -17,6 +15,7 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
   String _selectedSemester = 'All Semesters';
   bool _isLoading = true;
   String? _errorMessage;
+  bool _hasNoResults = false;
   Map<String, List<Map<String, dynamic>>> _resultsBySemester = {};
   double _gpa = 0.0;
   Map<String, double> _gradeDistribution = {
@@ -27,7 +26,7 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     'E': 0,
     'F': 0,
   };
-  List<String> _semesters = ['All Semesters'];
+  List<String> _semesters = ['All Semesters', 'First Semester', 'Second Semester'];
 
   @override
   void initState() {
@@ -41,6 +40,9 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     Future.delayed(Duration.zero, () {
       _fetchResults();
     });
+    
+    // Start animation
+    _animationController.forward();
   }
 
   @override
@@ -53,6 +55,7 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _hasNoResults = false;
     });
 
     try {
@@ -65,15 +68,58 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
         return;
       }
 
-      final snapshot = await FirebaseFirestore.instance
+      // First, get all course registrations for this student
+      final registrationsSnapshot = await FirebaseFirestore.instance
+          .collection('registrations')
+          .where('studentId', isEqualTo: user.uid)
+          .get();
+
+      if (registrationsSnapshot.docs.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _hasNoResults = true;
+        });
+        return;
+      }
+
+      // Extract registered course codes and create a map with semester and credit units
+      final registrationMap = <String, Map<String, dynamic>>{};
+      for (var doc in registrationsSnapshot.docs) {
+        final data = doc.data();
+        final courseCode = data['courseCode'] as String;
+        registrationMap[courseCode] = {
+          'semester': data['semester'] as String? ?? 'Unknown',
+          'creditUnits': data['creditUnits'] as int? ?? 0,
+        };
+      }
+
+      final registeredCourseCodes = registrationMap.keys.toSet();
+
+      // Now get results for this student
+      final resultsSnapshot = await FirebaseFirestore.instance
           .collection('results')
           .where('studentId', isEqualTo: user.uid)
           .get();
 
-      if (snapshot.docs.isEmpty) {
+      if (resultsSnapshot.docs.isEmpty) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No results found.';
+          _hasNoResults = true;
+        });
+        return;
+      }
+
+      // Filter results to only include registered courses
+      final validResults = resultsSnapshot.docs.where((doc) {
+        final data = doc.data();
+        final courseCode = data['courseCode'] as String? ?? data['course'] as String?;
+        return courseCode != null && registeredCourseCodes.contains(courseCode);
+      }).toList();
+
+      if (validResults.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _hasNoResults = true;
         });
         return;
       }
@@ -81,22 +127,28 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
       // Process results
       Map<String, List<Map<String, dynamic>>> resultsBySemester = {
         'All Semesters': [],
+        'First Semester': [],
+        'Second Semester': [],
       };
 
-      // Track unique semesters
-      Set<String> semestersSet = {};
-
-      // Process each result
-      for (var doc in snapshot.docs) {
+      // Process each valid result
+      for (var doc in validResults) {
         final data = doc.data();
-        final semester = data['semester'] as String? ?? 'Unknown';
-        semestersSet.add(semester);
+        final courseCode = data['courseCode'] as String? ?? data['course'] as String? ?? 'Unknown';
+        
+        // Get registration data for this course
+        final registrationData = registrationMap[courseCode];
+        final semester = registrationData?['semester'] ?? 'Unknown';
+        final creditUnits = registrationData?['creditUnits'] ?? 0;
+
+        // Debug print to check data
+        print('Course: $courseCode, Registration Semester: $semester, Result Semester: ${data['semester']}, Credit Units: $creditUnits');
 
         final resultMap = {
           'id': doc.id,
-          'courseCode': data['courseCode'] ?? 'Unknown',
+          'courseCode': courseCode,
           'courseTitle': data['courseTitle'] ?? 'Unknown Course',
-          'creditUnits': data['creditUnits'] ?? 0,
+          'creditUnits': creditUnits,
           'score': data['score'] ?? 0,
           'grade': data['grade'] ?? 'F',
           'semester': semester,
@@ -107,26 +159,18 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
         resultsBySemester['All Semesters']!.add(resultMap);
 
         // Add to specific semester list
-        if (!resultsBySemester.containsKey(semester)) {
-          resultsBySemester[semester] = [];
+        if (semester == 'First Semester') {
+          resultsBySemester['First Semester']!.add(resultMap);
+        } else if (semester == 'Second Semester') {
+          resultsBySemester['Second Semester']!.add(resultMap);
         }
-        resultsBySemester[semester]!.add(resultMap);
       }
 
-      // Convert set to list and sort semesters
-      List<String> semesters = ['All Semesters', ...semestersSet.toList()];
-      semesters.sort((a, b) {
-        if (a == 'All Semesters') return -1;
-        if (b == 'All Semesters') return 1;
-        return a.compareTo(b);
-      });
-
-      // Calculate GPA and grade distribution for all semesters
+      // Calculate GPA and grade distribution for all semesters initially
       _calculateStats(resultsBySemester['All Semesters']!);
 
       setState(() {
         _resultsBySemester = resultsBySemester;
-        _semesters = semesters;
         _isLoading = false;
         _animationController.forward();
       });
@@ -202,7 +246,8 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     if (value != null && value != _selectedSemester) {
       setState(() {
         _selectedSemester = value;
-        _calculateStats(_resultsBySemester[_selectedSemester] ?? []);
+        final selectedResults = _resultsBySemester[_selectedSemester] ?? [];
+        _calculateStats(selectedResults);
       });
     }
   }
@@ -225,9 +270,11 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
           ? const Center(
               child: CircularProgressIndicator(),
             )
-          : _errorMessage != null
-              ? _buildErrorView()
-              : _buildResultsView(),
+          : _hasNoResults
+              ? _buildSimpleNoResultsView()
+              : _errorMessage != null
+                  ? _buildErrorView()
+                  : _buildResultsView(),
     );
   }
 
@@ -278,7 +325,177 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     );
   }
 
+  Widget _buildSimpleNoResultsView() {
+    return RefreshIndicator(
+      onRefresh: _fetchResults,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+              
+              // Animated icon
+              AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: 0.8 + (_animationController.value * 0.2),
+                    child: Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.school_outlined,
+                        size: 80,
+                        color: Colors.green,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 32),
+              
+              // Main title
+              Text(
+                'No Results Yet',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Encouraging message
+              Text(
+                'Register for courses to see your results here!',
+                style: TextStyle(
+                  fontSize: 18,
+                  color:  Colors.green,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              
+              // Information message
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.green,
+                      size: 32,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'What happens next?',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '• Register for courses in the Registration tab\n'
+                      '• Attend classes and take your exams\n'
+                      '• Results will appear here after grading\n'
+                      '• Only courses you registered for will show results',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey.shade700,
+                        height: 1.6,
+                      ),
+                      textAlign: TextAlign.left,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // Action button
+              ElevatedButton.icon(
+                onPressed: () {
+                  _animationController.reset();
+                  _fetchResults();
+                  _animationController.forward();
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Check Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Footer tip
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      color: Colors.green.shade600,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Tip: Pull down to refresh this page anytime to check for new results.',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildResultsView() {
+    final currentResults = _resultsBySemester[_selectedSemester] ?? [];
+    final hasResults = currentResults.isNotEmpty;
+
     return RefreshIndicator(
       onRefresh: _fetchResults,
       child: SingleChildScrollView(
@@ -289,11 +506,10 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
           children: [
             _buildSemesterSelector(),
             const SizedBox(height: 24),
-            _buildPerformanceCards(),
-            const SizedBox(height: 24),
-            _buildGradeDistributionChart(),
-            const SizedBox(height: 24),
-            _buildResultsList(),
+            if (hasResults) ...[
+              _buildResultsList(),
+            ] else
+              _buildNoResultsForSemester(),
             const SizedBox(height: 40),
           ],
         ),
@@ -362,269 +578,14 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildPerformanceCards() {
-    final results = _resultsBySemester[_selectedSemester] ?? [];
-    final totalCourses = results.length;
-    final passedCourses = results.where((r) => r['grade'] != 'F').length;
 
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, 0.2),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.1, 0.8, curve: Curves.easeOutQuad),
-      )),
-      child: FadeTransition(
-        opacity: _animationController,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Performance Overview',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    title: 'GPA',
-                    value: _gpa.toStringAsFixed(2),
-                    icon: Icons.star,
-                    color: _getGpaColor(_gpa),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    title: 'Courses',
-                    value: '$totalCourses',
-                    icon: Icons.menu_book,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    title: 'Success Rate',
-                    value: totalCourses > 0
-                        ? '${(passedCourses / totalCourses * 100).round()}%'
-                        : '0%',
-                    icon: Icons.timeline,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+ 
   Color _getGpaColor(double gpa) {
     if (gpa >= 4.5) return Colors.purple;
     if (gpa >= 3.5) return Colors.green;
     if (gpa >= 2.5) return Colors.blue;
     if (gpa >= 1.5) return Colors.orange;
     return Colors.red;
-  }
-
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGradeDistributionChart() {
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0.3, 0),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 0.9, curve: Curves.easeOutQuad),
-      )),
-      child: FadeTransition(
-        opacity: _animationController,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.pie_chart,
-                      color: Colors.deepPurple,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Grade Distribution',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 200,
-                child: _buildBarChart(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBarChart() {
-    final results = _resultsBySemester[_selectedSemester] ?? [];
-    if (results.isEmpty) {
-      return const Center(
-        child: Text(
-          'No data available for this semester',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-
-    return BarChart(
-      BarChartData(
-        barGroups: _gradeDistribution.entries.map((entry) {
-          final index = ['A', 'B', 'C', 'D', 'E', 'F'].indexOf(entry.key);
-          final color = _getGradeColor(entry.key);
-
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: entry.value,
-                color: color,
-                width: 20,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ],
-          );
-        }).toList(),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 28,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
-                );
-              },
-            ),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final grades = ['A', 'B', 'C', 'D', 'E', 'F'];
-                return Text(
-                  grades[value.toInt()],
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: const FlGridData(show: false),
-      ),
-    );
   }
 
   Color _getGradeColor(String grade) {
@@ -680,175 +641,254 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: results.length,
-              itemBuilder: (context, index) {
-                final result = results[index];
-                final courseCode = result['courseCode'];
-                final courseTitle = result['courseTitle'];
-                final grade = result['grade'];
-                final score = result['score'];
-                final creditUnits = result['creditUnits'];
-                final semester = result['semester'];
-                final academicYear = result['academicYear'];
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  elevation: 2,
-                  shadowColor: Colors.black.withOpacity(0.1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 8),
+            // Grading scale info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.blue.shade600,
+                    size: 16,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    courseCode,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    courseTitle,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          '$creditUnits Units',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      if (_selectedSemester == 'All Semesters')
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.purple.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            semester,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.purple,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _getGradeColor(grade).withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: _getGradeColor(grade),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    grade,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: _getGradeColor(grade),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '$score%',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: _getScoreColor(score),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Divider(color: Colors.grey.withOpacity(0.2)),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              academicYear,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            Text(
-                              _getGradeDescription(grade),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _getGradeColor(grade),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Grading Scale: A (70-100) • B (60-69) • C (50-59) • D (45-49) • E (40-44) • F (0-39)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blue.shade700,
+                      ),
                     ),
                   ),
-                );
-              },
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
+                  headingRowHeight: 56,
+                  dataRowHeight: 64,
+                  headingTextStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                  dataTextStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black87,
+                  ),
+                  columnSpacing: 20,
+                  horizontalMargin: 16,
+                  dividerThickness: 1,
+                  border: TableBorder.all(
+                    color: Colors.grey.shade200,
+                    width: 1,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  columns: [
+                    const DataColumn(label: Text('Course Code')),
+                    const DataColumn(label: Text('Course Title')),
+                    const DataColumn(label: Text('Units')),
+                    const DataColumn(label: Text('Score')),
+                    const DataColumn(label: Text('Grade')),
+                    const DataColumn(label: Text('Remark')),
+                    if (_selectedSemester == 'All Semesters')
+                      const DataColumn(label: Text('Semester')),
+                  ],
+                  rows: results.map((result) {
+                    final courseCode = result['courseCode'];
+                    final courseTitle = result['courseTitle'];
+                    final grade = result['grade'];
+                    final score = result['score'];
+                    final creditUnits = result['creditUnits'];
+                    final semester = result['semester'];
+
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            courseCode,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              courseTitle,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$creditUnits',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '$score%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _getScoreColor(score),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _getGradeColor(grade).withOpacity(0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _getGradeColor(grade),
+                                width: 2,
+                              ),
+                            ),
+                            child: Text(
+                              grade,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: _getGradeColor(grade),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getGradeColor(grade).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _getGradeDescription(grade),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _getGradeColor(grade),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_selectedSemester == 'All Semesters')
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                semester.replaceAll(' Semester', ''),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.purple,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Summary section
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSummaryItem(
+                    'Total Courses',
+                    '${results.length}',
+                    Icons.menu_book,
+                    Colors.blue,
+                  ),
+                  _buildSummaryItem(
+                    'Total Units',
+                    '${results.fold<int>(0, (sum, result) => sum + (result['creditUnits'] as int? ?? 0))}',
+                    Icons.grain,
+                    Colors.green,
+                  ),
+                  _buildSummaryItem(
+                    'Average Score',
+                    '${results.isEmpty ? 0 : (results.fold<int>(0, (sum, result) => sum + (result['score'] as int? ?? 0)) / results.length).round()}%',
+                    Icons.trending_up,
+                    Colors.orange,
+                  ),
+                  _buildSummaryItem(
+                    'GPA',
+                    _gpa.toStringAsFixed(2),
+                    Icons.star,
+                    _getGpaColor(_gpa),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-      ),
-    );
+      ));
   }
 
   String _getGradeDescription(String grade) {
@@ -876,5 +916,157 @@ class _ResultsState extends State<Results> with SingleTickerProviderStateMixin {
     if (score >= 50) return Colors.orange;
     if (score >= 45) return Colors.amber;
     return Colors.red;
+  }
+
+  Widget _buildNoResultsForSemester() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Icon
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.calendar_today_outlined,
+              size: 64,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Title
+          Text(
+            'No Results for ${_selectedSemester}',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          
+          // Message
+          Text(
+            _selectedSemester == 'All Semesters'
+                ? 'You haven\'t received any results yet. Make sure you are registered for courses.'
+                : 'Results for ${_selectedSemester.toLowerCase()} haven\'t been uploaded yet.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          
+          // Information box
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.2)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'What to do next?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _selectedSemester == 'All Semesters'
+                      ? '• Register for courses in the Registration tab\n• Attend classes and complete assessments\n• Check back after exams are completed'
+                      : '• Check with your lecturers about result upload timeline\n• Results typically appear 2-4 weeks after exams\n• Switch to "All Semesters" to see available results',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blue.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Refresh button
+          ElevatedButton.icon(
+            onPressed: () {
+              _fetchResults();
+            },
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Refresh Results'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String title, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
   }
 }

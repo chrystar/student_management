@@ -60,9 +60,42 @@ class _LecturerIdManagementScreenState extends State<LecturerIdManagementScreen>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
+        }        if (snapshot.hasError) {
+          print('Error fetching lecturer IDs: ${snapshot.error}');
+          // Check specifically for permission errors
+          if (snapshot.error.toString().contains('permission-denied')) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock, size: 64, color: Colors.amber),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Permission Error',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32.0),
+                    child: Text(
+                      'You don\'t have permission to access lecturer IDs. Please log out and log back in, or contact an administrator.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                    child: const Text('GO TO LOGIN'),
+                  ),
+                ],
+              ),
+            );
+          }
           return Center(child: Text('Error: ${snapshot.error}'));
         }
 
@@ -648,16 +681,31 @@ class _LecturerIdManagementScreenState extends State<LecturerIdManagementScreen>
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       // Show success dialog with the generated ID
-      _showGeneratedIdDialog(context, lecturerId, email);
-    }).catchError((error) {
+      _showGeneratedIdDialog(context, lecturerId, email);    }).catchError((error) {
       // Clear any existing snackbar
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       // Show error message
+      String errorMessage = 'Error generating ID';
+      
+      if (error.toString().contains('permission-denied')) {
+        errorMessage = 'Permission denied. Please log out and log back in.';
+      } else {
+        errorMessage = 'Error generating ID: ${error.toString()}';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error generating ID: $error'),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'RETRY',
+            onPressed: () {
+              _generateLecturerId(context, name, department, email);
+            },
+            textColor: Colors.white,
+          ),
         ),
       );
     });

@@ -1,19 +1,109 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+  match /databases/{database}/documents {    // Rules for users collection
+    match /users/{userId} {
+      // Allow users to read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow creation of new user documents during registration
+      allow create: if request.resource != null && resource == null;
+      
+      // Allow querying users collection with different conditions
+      allow list: if request.auth != null && (
+        // For matric number queries during login (auth not required)
+        ('matricNumber' in request.query.filters && request.query.filters.size() == 1) ||
+        // For admin/lecturer accessing student data
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer')) ||
+        // For own data
+        (request.auth.uid == userId)
+      );
+    }
+    
+    // Allow authenticated users to read and write to specific collections
+    match /courses/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+      // Allow all authenticated users to read news
+    match /news/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' || 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer');
+    }    // Allow access to valid_matric_numbers collection
+    match /valid_matric_numbers/{document} {
+      // Allow reading for login verification (even when not authenticated)
+      allow read: if true;
+      // Only allow writing when authenticated
+      allow write: if request.auth != null && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    // Allow access to student_activities collection
+    match /student_activities/{document} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+      // Allow course registrations for authenticated students
+    match /registrations/{document} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow delete: if request.auth != null && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                    (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+                     request.auth.uid == resource.data.studentId);
+    }
+    
+    // Allow access to lecturer_ids collection for admins
+    match /lecturer_ids/{document} {
+      allow read, write: if request.auth != null && 
+                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+      // Allow access to student_activities collection
+    match /student_activities/{document} {
+      allow read: if request.auth != null && 
+                exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow write: if request.auth != null && 
+                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer');
+    }
+    
+    // Allow access to notifications collection
+    match /notifications/{document} {
+      allow read: if request.auth != null && 
+                (resource.data.studentId == request.auth.uid ||
+                 resource.data.recipientId == request.auth.uid);
+      allow write: if request.auth != null && 
+                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer');
+    }
+    
+    // Allow access to results collection
+    match /results/{document} {
+      // Students can read their own results
+      allow read: if request.auth != null && 
+                (resource.data.studentId == request.auth.uid ||
+                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                  (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer')));
+      // Only admins and lecturers can write results
+      allow write: if request.auth != null && 
+                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lecturer');
+    }
+    
+    // Default rule - deny all other access
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 5, 15);
+      allow read, write: if false;
     }
   }
 }

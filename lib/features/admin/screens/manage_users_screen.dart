@@ -30,75 +30,82 @@ class _ManageUsersScreenState extends State<ManageUsersScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isSmallScreen = screenSize.width < 600;
-
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search and filters row
-            isSmallScreen
-                ? Column(
-                    children: [
-                      _buildSearchField(),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: _buildAddButton(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmallScreen = constraints.maxWidth < 600;
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(constraints.maxWidth * 0.02),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search and filters row
+                  if (isSmallScreen)
+                    Column(
+                      children: [
+                        _buildSearchField(),
+                        SizedBox(height: constraints.maxHeight * 0.02),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _buildAddButton(),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(child: _buildSearchField()),
+                        SizedBox(width: constraints.maxWidth * 0.02),
+                        _buildAddButton(),
+                      ],
+                    ),
+
+                  SizedBox(height: constraints.maxHeight * 0.02),
+
+                  // Tab bar with modern style
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: 'All Users'),
+                        Tab(text: 'Students'),
+                        Tab(text: 'Lecturers'),
+                      ],
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.grey,
+                      indicator: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: _buildSearchField()),
-                      const SizedBox(width: 16),
-                      _buildAddButton(),
-                    ],
+                      padding: EdgeInsets.all(constraints.maxWidth * 0.01),
+                    ),
                   ),
 
-            const SizedBox(height: 16),
+                  SizedBox(height: constraints.maxHeight * 0.02),
 
-            // Tab bar with modern style
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'All Users'),
-                  Tab(text: 'Students'),
-                  Tab(text: 'Lecturers'),
-                ],
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey,
-                indicator: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.all(4),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildUsersList(null),
-                  _buildUsersList('Student'),
-                  _buildUsersList('Lecturer'),
+                  // Tab content
+                  SizedBox(
+                    height: constraints.maxHeight * 0.8,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildUsersList(null),
+                        _buildUsersList('Student'),
+                        _buildUsersList('Lecturer'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -152,7 +159,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen>
       icon: const Icon(Icons.add),
       label: const Text('Add User'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         shape: RoundedRectangleBorder(

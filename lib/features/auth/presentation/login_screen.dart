@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:student_management/features/auth/presentation/registration_screen.dart';
-import '../../../core/widgets/text_widget.dart';
 import '../provider/auth_provider.dart';
 import '../provider/user_provider.dart';
 import 'student_verification_screen.dart';
@@ -310,10 +309,12 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
   void _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       String? result;
 
@@ -330,67 +331,117 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
-      setState(() => _isLoading = false);
-
+      
       if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result),
-            backgroundColor: Colors.red.shade400,
-          ),
-        );
-      } else {
-        // If login is successful, load user data to determine navigation
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        await userProvider.loadUserData();
+        // Login failed with a specific error message
+        _showError(result);
+        return;
+      }
 
-        if (userProvider.user?.role == 'Student') {
-          // For students, check their verification status
-          final validMatricQuery = await FirebaseFirestore.instance
-              .collection('valid_matric_numbers')
-              .where('matricNumber',
-                  isEqualTo: _matricController.text.trim().toUpperCase())
-              .get();
+      // Try to load user data
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.loadUserData().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception("Timeout while loading user data");
+        },
+      );
 
-          if (validMatricQuery.docs.isNotEmpty) {
-            final matricData = validMatricQuery.docs.first.data();
-            final isUsed = matricData['isUsed'] ?? false;
-            final userId = matricData['userId'];
+      if (!mounted) return;
 
-            if (isUsed && userId == userProvider.user!.uid) {
-              // Already verified, navigate to home
-              Navigator.pushReplacementNamed(context, '/student-home');
-            } else {
-              // Need verification, go to verification screen
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => StudentVerificationScreen(
-                  ),
-                ),
-              );
-            }
+      if (_selectedRole == 'Student') {
+        // Verify student's matric number
+        final validMatricQuery = await FirebaseFirestore.instance
+            .collection('valid_matric_numbers')
+            .where('matricNumber',
+                isEqualTo: _matricController.text.trim().toUpperCase())
+            .get();
+
+        if (validMatricQuery.docs.isNotEmpty) {
+          final matricData = validMatricQuery.docs.first.data();
+          final isUsed = matricData['isUsed'] ?? false;
+          final userId = matricData['userId'];
+
+          if (isUsed && userId == userProvider.user!.uid) {
+            Navigator.pushReplacementNamed(context, '/student-home');
           } else {
-            // Matric not found in database
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => StudentVerificationScreen(
-                ),
+                builder: (context) => const StudentVerificationScreen(),
               ),
             );
           }
         } else {
-          // For lecturers and admins
-          if (userProvider.user?.role == 'Lecturer') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const StudentVerificationScreen(),
+            ),
+          );
+        }
+      } else {
+        // Handle lecturer and admin navigation
+        switch (userProvider.user?.role) {
+          case 'Lecturer':
             Navigator.pushReplacementNamed(context, '/lecturer-home');
-          } else if (userProvider.user?.role == 'Admin') {
+            break;
+          case 'Admin':
             Navigator.pushReplacementNamed(context, '/admin-home');
-          } else {
-            Navigator.pushReplacementNamed(context, '/');
-          }
+            break;
+          default:
+            _showError('Invalid user role. Please contact support.');
+            break;
         }
       }
+    } catch (e) {
+      if (!mounted) return;
+      
+      String errorMessage = _getReadableErrorMessage(e.toString());
+      _showError(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+  String _getReadableErrorMessage(String error) {
+    if (error.contains('wrong-password') || error.contains('INVALID_LOGIN_CREDENTIALS')) {
+      return 'Incorrect password. Please try again.';
+    } else if (error.contains('user-not-found')) {
+      return _selectedRole == 'Student' 
+          ? 'No account found with this matric number.'
+          : 'No account found with this email.';
+    } else if (error.contains('invalid-email')) {
+      return 'Invalid email format.';
+    } else if (error.contains('network-request-failed')) {
+      return 'Network error. Please check your internet connection.';
+    } else if (error.contains('too-many-requests')) {
+      return 'Too many failed attempts. Please try again later.';
+    } else if (error.contains('PERMISSION_DENIED')) {
+      return 'Access denied. Please make sure you selected the correct role.';
+    } else if (error.contains('Timeout')) {
+      return 'Request timed out. Please check your internet connection and try again.';
+    }
+    return 'An error occurred. Please try again.';
   }
 }

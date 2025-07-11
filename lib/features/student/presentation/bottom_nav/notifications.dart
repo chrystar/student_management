@@ -80,54 +80,60 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 .collection('notifications')
                 .where('recipientId', isEqualTo: userId)
                 .where('read', isEqualTo: false)
-                .orderBy('timestamp', descending: true)
-                .orderBy(FieldPath.documentId,
-                    descending:
-                        true) // Explicitly include __name__ in the ordering
                 .snapshots()
             : FirebaseFirestore.instance
                 .collection('notifications')
                 .where('recipientId', isEqualTo: userId)
-                .orderBy('timestamp', descending: true)
-                .orderBy(FieldPath.documentId,
-                    descending:
-                        true) // Explicitly include __name__ in the ordering
                 .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
-            // Check if error is related to Firestore index
+          if (snapshot.hasError) {            // Check if error is related to Firestore index
             final errorMsg = snapshot.error.toString();
             if (errorMsg.contains('FAILED_PRECONDITION') &&
                 errorMsg.contains('index')) {
+              // Check specifically for "index is building" case
+              final bool isIndexBuilding = errorMsg.contains('cannot be used yet');
+              
               return Container(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.hourglass_bottom, color: Colors.amber, size: 48),
+                    Icon(
+                      isIndexBuilding ? Icons.hourglass_bottom : Icons.build_circle,
+                      color: isIndexBuilding ? Colors.amber : Colors.blue,
+                      size: 48
+                    ),
                     const SizedBox(height: 16),
-                    const Text(
-                      "Setting up notifications...",
-                      style: TextStyle(
+                    Text(
+                      isIndexBuilding
+                          ? "Almost ready..."
+                          : "Setting up notifications...",
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      "We're preparing your notifications. This should only take a minute or two.",
+                    Text(
+                      isIndexBuilding
+                          ? "The notification system is being optimized. This usually takes 1-2 minutes. Please wait..."
+                          : "We're preparing your notifications. This should only take a minute or two.",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const CircularProgressIndicator(),
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isIndexBuilding ? Colors.amber : Colors.blue,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -138,6 +144,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           }
 
           final notifications = snapshot.data?.docs ?? [];
+          
+          // Sort notifications by timestamp manually
+          notifications.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTimestamp = aData['timestamp'] as Timestamp?;
+            final bTimestamp = bData['timestamp'] as Timestamp?;
+            
+            if (aTimestamp == null && bTimestamp == null) return 0;
+            if (aTimestamp == null) return 1;
+            if (bTimestamp == null) return -1;
+            
+            return bTimestamp.compareTo(aTimestamp); // Descending order
+          });
 
           if (notifications.isEmpty) {
             return Center(

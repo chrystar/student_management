@@ -12,6 +12,8 @@ class News {
   final String? imageUrl;
   final bool featured;
   final List<String> targetAudience; // e.g., ['student', 'lecturer']
+  final List<String> targetDepartments; // e.g., ['Computer Science', 'Engineering']
+  final bool isGlobal; // true for all departments, false for specific departments
 
   News({
     required this.id,
@@ -25,6 +27,8 @@ class News {
     this.imageUrl,
     this.featured = false,
     required this.targetAudience,
+    this.targetDepartments = const [],
+    this.isGlobal = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -39,6 +43,8 @@ class News {
       'imageUrl': imageUrl,
       'featured': featured,
       'targetAudience': targetAudience,
+      'targetDepartments': targetDepartments,
+      'isGlobal': isGlobal,
     };
   }
 
@@ -55,6 +61,8 @@ class News {
       imageUrl: map['imageUrl'],
       featured: map['featured'] ?? false,
       targetAudience: List<String>.from(map['targetAudience'] ?? ['student']),
+      targetDepartments: List<String>.from(map['targetDepartments'] ?? []),
+      isGlobal: map['isGlobal'] ?? true,
     );
   }
 
@@ -70,6 +78,8 @@ class News {
     String? imageUrl,
     bool? featured,
     List<String>? targetAudience,
+    List<String>? targetDepartments,
+    bool? isGlobal,
   }) {
     return News(
       id: id ?? this.id,
@@ -83,6 +93,8 @@ class News {
       imageUrl: imageUrl ?? this.imageUrl,
       featured: featured ?? this.featured,
       targetAudience: targetAudience ?? this.targetAudience,
+      targetDepartments: targetDepartments ?? this.targetDepartments,
+      isGlobal: isGlobal ?? this.isGlobal,
     );
   }
 }

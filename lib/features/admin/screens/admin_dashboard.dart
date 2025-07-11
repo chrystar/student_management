@@ -550,10 +550,44 @@ class DashboardHome extends StatelessWidget {
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: SizedBox(
+                  height: 50,
+                  width: 50,
+                  child: CircularProgressIndicator(),
+                ),
+              );
             }
 
             if (snapshot.hasError) {
+              print('Error fetching activities: ${snapshot.error}');
+              // Handle permission error specifically
+              if (snapshot.error.toString().contains('permission-denied')) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.lock_outline,
+                        size: 40,
+                        color: Colors.orange,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Permission denied',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Unable to access student activities. Please check your permissions.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              
               return Center(child: Text('Error: ${snapshot.error}'));
             }
 
@@ -561,7 +595,21 @@ class DashboardHome extends StatelessWidget {
 
             if (activities.isEmpty) {
               return const Center(
-                child: Text('No recent activities to display'),
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.event_note,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 12),
+                      Text('No recent activities to display'),
+                    ],
+                  ),
+                ),
               );
             }
 

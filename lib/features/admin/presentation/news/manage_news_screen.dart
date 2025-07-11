@@ -29,6 +29,10 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
   File? _imageFile;
   String? _existingImageUrl;
   News? _existingNews;
+  
+  // Department targeting variables
+  bool _isGlobal = true; // Whether news is for all departments
+  List<String> _targetDepartments = []; // Selected departments
 
   final List<String> _categories = [
     'General',
@@ -43,6 +47,20 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
   final List<String> _audienceOptions = [
     'student',
     'lecturer',
+  ];
+
+  // Available departments - should match your registration screen departments
+  final List<String> _departments = [
+    'Computer Science',
+    'Engineering',
+    'Business Administration',
+    'Medicine',
+    'Law',
+    'Education',
+    'Arts and Sciences',
+    'Nursing',
+    'Agriculture',
+    'Architecture',
   ];
 
   @override
@@ -75,6 +93,8 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
         _targetAudience = _existingNews!.targetAudience;
         _isFeatured = _existingNews!.featured;
         _existingImageUrl = _existingNews!.imageUrl;
+        _isGlobal = _existingNews!.isGlobal;
+        _targetDepartments = _existingNews!.targetDepartments;
       }
     } catch (e) {
       showCustomSnackBar(context, 'Error loading news: $e', isError: true);
@@ -126,6 +146,16 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
   Future<void> _saveNews() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Additional validation for department targeting
+    if (!_isGlobal && _targetDepartments.isEmpty) {
+      showCustomSnackBar(
+        context, 
+        'Please select at least one department or enable global news', 
+        isError: true
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -153,6 +183,8 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
         imageUrl: imageUrl,
         featured: _isFeatured,
         targetAudience: _targetAudience,
+        targetDepartments: _targetDepartments,
+        isGlobal: _isGlobal,
       );
 
       if (_isEdit) {
@@ -169,6 +201,8 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
               : news.content,
           targetAudience: news.targetAudience,
           category: news.category,
+          isGlobal: news.isGlobal,
+          targetDepartments: news.targetDepartments,
         );
       }
 
@@ -199,34 +233,46 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
     required String message,
     required List<String> targetAudience,
     required String category,
+    required bool isGlobal,
+    required List<String> targetDepartments,
   }) async {
     try {
       // Get all users to send notifications
-      final usersSnapshot = await FirebaseFirestore.instance
+      Query usersQuery = FirebaseFirestore.instance
           .collection('users')
-          .where('role', whereIn: targetAudience)
-          .get();
+          .where('role', whereIn: targetAudience);
+
+      final usersSnapshot = await usersQuery.get();
 
       final batch = FirebaseFirestore.instance.batch();
       final notificationsRef =
           FirebaseFirestore.instance.collection('notifications');
 
       for (var userDoc in usersSnapshot.docs) {
-        final userData = userDoc.data();
+        final userData = userDoc.data() as Map<String, dynamic>;
         final userId = userDoc.id;
+        final userDepartment = userData['department'] as String?;
 
-        final notificationDoc = notificationsRef.doc();
-        batch.set(notificationDoc, {
-          'recipientId': userId,
-          'type': 'news',
-          'title': title,
-          'message': message,
-          'sender': 'News System',
-          'read': false,
-          'timestamp': FieldValue.serverTimestamp(),
-          'actionUrl': '/news/$newsId',
-          'category': category,
-        });
+        // Check if user should receive this notification based on department
+        bool shouldReceiveNotification = isGlobal;
+        if (!isGlobal && userDepartment != null) {
+          shouldReceiveNotification = targetDepartments.contains(userDepartment);
+        }
+
+        if (shouldReceiveNotification) {
+          final notificationDoc = notificationsRef.doc();
+          batch.set(notificationDoc, {
+            'recipientId': userId,
+            'type': 'news',
+            'title': title,
+            'message': message,
+            'sender': 'News System',
+            'read': false,
+            'timestamp': FieldValue.serverTimestamp(),
+            'actionUrl': '/news/$newsId',
+            'category': category,
+          });
+        }
       }
 
       await batch.commit();
@@ -387,6 +433,91 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                             );
                           }).toList(),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Department targeting section
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Department Targeting',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Global vs Department specific toggle
+                        SwitchListTile(
+                          title: const Text('Global News'),
+                          subtitle: const Text('Show to all departments'),
+                          value: _isGlobal,
+                          onChanged: (bool value) {
+                            setState(() {
+                              _isGlobal = value;
+                              if (value) {
+                                _targetDepartments.clear();
+                              }
+                            });
+                          },
+                        ),
+                        
+                        // Department selection (only shown when not global)
+                        if (!_isGlobal) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Select Departments',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _departments.map((String department) {
+                                return FilterChip(
+                                  label: Text(
+                                    department,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  selected: _targetDepartments.contains(department),
+                                  onSelected: (bool selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _targetDepartments.add(department);
+                                      } else {
+                                        _targetDepartments.remove(department);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          if (_targetDepartments.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Please select at least one department',
+                                style: TextStyle(
+                                  color: Colors.red[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 16),

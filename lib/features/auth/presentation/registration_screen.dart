@@ -5,7 +5,6 @@ import '../provider/auth_provider.dart';
 import 'login_screen.dart';
 import 'student_verification_screen.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/theme_extension.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -282,7 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               labelText: 'Role',
               border: OutlineInputBorder(),
             ),
-            items: ['Student', 'Lecturer', 'Admin'].map((String role) {
+            items: ['Student', 'Lecturer'].map((String role) {
               return DropdownMenuItem<String>(
                 value: role,
                 child: Text(role),
