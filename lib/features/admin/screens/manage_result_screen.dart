@@ -438,30 +438,6 @@ class _ManageResultScreenState extends State<ManageResultScreen> {
                     const Center(
                       child: Text('No students found for the selected criteria.'),
                     ),
-                  SizedBox(height: constraints.maxHeight * 0.02),
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Bulk Save Results',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _isBulkSaving ? null : bulkSaveResults,
-                            child: _isBulkSaving
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.0,
-                                  )
-                                : const Text('Save All Results'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

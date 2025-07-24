@@ -17,9 +17,31 @@ class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late TabController _tabController;
-  String _selectedCategory = "All News";
+  // Separate selected categories for each tab
+  String _selectedGlobalCategory = 'General';
+  String _selectedDepartmentCategory = 'General';
   // Key to force animation refresh when category changes
   Key _newsListKey = UniqueKey();
+
+  // Define categories for each tab (update to match admin's available categories)
+  final List<String> _globalCategories = [
+    'General',
+    'Academic',
+    'School Events',
+    'Announcements',
+    'Faculty News',
+    'Sports',
+    'Deadlines',
+  ];
+  final List<String> _departmentCategories = [
+    'General',
+    'Academic',
+    'School Events',
+    'Announcements',
+    'Faculty News',
+    'Sports',
+    'Deadlines',
+  ];
 
   @override
   void initState() {
@@ -30,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
     _tabController = TabController(length: 2, vsync: this);
     _animationController.forward();
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild to update categories when tab changes
+    });
   }
 
   @override
@@ -201,71 +226,7 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 24),
 
-              // News Categories
-              SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(-0.3, 0),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: _animationController,
-                  curve: const Interval(0.2, 0.7, curve: Curves.easeOutQuad),
-                )),
-                child: FadeTransition(
-                  opacity: _animationController,
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('news')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        // Calculate counts for each category
-                        Map<String, int> counts = {
-                          'All News': 0,
-                          'General': 0,
-                          'Academic': 0,
-                          'School Events': 0,
-                          'Announcements': 0,
-                          'Faculty News': 0,
-                          'Sports': 0,
-                          'Deadlines': 0,
-                        };
-
-                        for (var doc in snapshot.data!.docs) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final category = data['category'] ?? 'General';
-                          counts['All News'] = (counts['All News'] ?? 0) + 1;
-                          counts[category] = (counts[category] ?? 0) + 1;
-                        }
-
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _buildCategoryButton(
-                                "All News",
-                                isSelected: _selectedCategory == "All News",
-                                count: counts['All News'] ?? 0,
-                              ),
-                              ...counts.keys
-                                  .where((key) => key != 'All News')
-                                  .map((category) => _buildCategoryButton(
-                                        category,
-                                        isSelected: _selectedCategory == category,
-                                        count: counts[category] ?? 0,
-                                      )),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox(height: 60);
-                    },
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // News TabBar Section
+              // News TabBar Section (moved up)
               SlideTransition(
                 position: Tween<Offset>(
                   begin: const Offset(0, 0.2),
@@ -291,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                     child: Column(
                       children: [
-                        // Tab Bar
+                        // Tab Bar (moved up)
                         Container(
                           margin: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -329,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   children: [
                                     Icon(Icons.public, size: 18),
                                     SizedBox(width: 8),
-                                    Text('Global News'),
+                                    Text('General'),
                                   ],
                                 ),
                               ),
@@ -346,8 +307,41 @@ class _HomeScreenState extends State<HomeScreen>
                             ],
                           ),
                         ),
-                        
-                        // Tab Views
+                        // Categories (now based on selected tab)
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final isGlobalTab = _tabController.index == 0;
+                            final categories = isGlobalTab ? _globalCategories : _departmentCategories;
+                            final selectedCategory = isGlobalTab ? _selectedGlobalCategory : _selectedDepartmentCategory;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  ...categories.map((category) => _buildCategoryButton(
+                                        category,
+                                        isSelected: selectedCategory == category,
+                                        count: null, // Optionally implement count per tab/category
+                                        onTap: () {
+                                          setState(() {
+                                            if (isGlobalTab) {
+                                              _selectedGlobalCategory = category;
+                                            } else {
+                                              _selectedDepartmentCategory = category;
+                                            }
+                                            _newsListKey = UniqueKey();
+                                            _animationController.reset();
+                                            _animationController.forward();
+                                          });
+                                        },
+                                      )),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        // Tab Views (remains below categories)
                         SizedBox(
                           height: 400, // Fixed height for the tab view content
                           child: TabBarView(
@@ -356,12 +350,12 @@ class _HomeScreenState extends State<HomeScreen>
                               // Global News Tab
                               Padding(
                                 padding: const EdgeInsets.all(16.0),
-                                child: _buildGlobalNewsSection(),
+                                child: _buildGlobalNewsSection(category: _selectedGlobalCategory),
                               ),
                               // Department News Tab
                               Padding(
                                 padding: const EdgeInsets.all(16.0),
-                                child: _buildDepartmentNewsSection(),
+                                child: _buildDepartmentNewsSection(category: _selectedDepartmentCategory),
                               ),
                             ],
                           ),
@@ -383,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen>
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            NewsListScreen(category: _selectedCategory),
+                            NewsListScreen(category: _selectedGlobalCategory),
                       ),
                     );
                   }),
@@ -400,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen>
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            NewsListScreen(category: _selectedCategory),
+                            NewsListScreen(category: _selectedGlobalCategory),
                       ),
                     );
                   }),
@@ -414,24 +408,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildCategoryButton(String label,
-      {bool isSelected = false, int count = 0}) {
+      {bool isSelected = false, int? count, required VoidCallback? onTap}) {
     return Container(
         margin: const EdgeInsets.only(right: 12),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(30),
-            onTap: () {
-              setState(() {
-                if (_selectedCategory != label) {
-                  _selectedCategory = label;
-                  _newsListKey = UniqueKey();
-                  // Reset animation controller to play animations again
-                  _animationController.reset();
-                  _animationController.forward();
-                }
-              });
-            },
+            onTap: onTap,
             child: Ink(
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryColor : Colors.white,
@@ -482,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen>
                         fontSize: 14,
                       ),
                     ),
-                    if (count > 0) ...[
+                    if (count != null && count > 0) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -515,8 +499,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
-      case 'All News':
-        return Icons.newspaper;
+      case 'General':
+        return Icons.article;
       case 'Academic':
         return Icons.school;
       case 'School Events':
@@ -534,9 +518,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Widget _buildGlobalNewsSection() {
+  Widget _buildGlobalNewsSection({required String category}) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _selectedCategory == "All News"
+      stream: category == "General"
           ? FirebaseFirestore.instance
               .collection('news')
               .where('isGlobal', isEqualTo: true)
@@ -546,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen>
           : FirebaseFirestore.instance
               .collection('news')
               .where('isGlobal', isEqualTo: true)
-              .where('category', isEqualTo: _selectedCategory)
+              .where('category', isEqualTo: category)
               .orderBy('timestamp', descending: true)
               .limit(5)
               .snapshots(),
@@ -584,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Icon(Icons.public, color: Colors.grey, size: 48),
                   const SizedBox(height: 12),
                   Text(
-                    "No global news available",
+                    "No general news available",
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 16,
@@ -618,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildDepartmentNewsSection() {
+  Widget _buildDepartmentNewsSection({required String category}) {
     final user = Provider.of<UserProvider>(context, listen: false).user;
     final userDepartment = user?.department;
     
@@ -650,19 +634,17 @@ class _HomeScreenState extends State<HomeScreen>
     }
     
     return StreamBuilder<QuerySnapshot>(
-      stream: _selectedCategory == "All News"
+      stream: category == "General"
           ? FirebaseFirestore.instance
               .collection('news')
               .where('isGlobal', isEqualTo: false)
-              .where('targetDepartments', arrayContains: userDepartment)
               .orderBy('timestamp', descending: true)
               .limit(5)
               .snapshots()
           : FirebaseFirestore.instance
               .collection('news')
               .where('isGlobal', isEqualTo: false)
-              .where('targetDepartments', arrayContains: userDepartment)
-              .where('category', isEqualTo: _selectedCategory)
+              .where('category', isEqualTo: category)
               .orderBy('timestamp', descending: true)
               .limit(5)
               .snapshots(),
@@ -895,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen>
         child: FadeTransition(
           opacity: _animationController,
           child: StreamBuilder<QuerySnapshot>(
-            stream: _selectedCategory == "All News"
+            stream: _selectedGlobalCategory == "General"
                 ? FirebaseFirestore.instance
                     .collection('news')
                     .where('featured', isEqualTo: true)
@@ -904,7 +886,7 @@ class _HomeScreenState extends State<HomeScreen>
                 : FirebaseFirestore.instance
                     .collection('news')
                     .where('featured', isEqualTo: true)
-                    .where('category', isEqualTo: _selectedCategory)
+                    .where('category', isEqualTo: _selectedGlobalCategory)
                     .limit(1)
                     .snapshots(),
             builder: (context, snapshot) {
@@ -1142,7 +1124,7 @@ class _HomeScreenState extends State<HomeScreen>
         child: FadeTransition(
           opacity: _animationController,
           child: StreamBuilder<QuerySnapshot>(
-            stream: _selectedCategory == "All News"
+            stream: _selectedGlobalCategory == "General"
                 ? FirebaseFirestore.instance
                     .collection('news')
                     .orderBy('timestamp', descending: true)
@@ -1150,7 +1132,7 @@ class _HomeScreenState extends State<HomeScreen>
                     .snapshots()
                 : FirebaseFirestore.instance
                     .collection('news')
-                    .where('category', isEqualTo: _selectedCategory)
+                    .where('category', isEqualTo: _selectedGlobalCategory)
                     .orderBy('timestamp', descending: true)
                     .limit(5)
                     .snapshots(),
@@ -1186,17 +1168,17 @@ class _HomeScreenState extends State<HomeScreen>
                             color: Colors.grey, size: 32),
                         const SizedBox(height: 8),
                         Text(
-                          _selectedCategory == "All News"
+                          _selectedGlobalCategory == "General"
                               ? "No news available"
-                              : "No $_selectedCategory news available",
+                              : "No $_selectedGlobalCategory news available",
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
-                        if (_selectedCategory != "All News") ...[
+                        if (_selectedGlobalCategory != "General") ...[
                           const SizedBox(height: 8),
                           TextButton(
                             onPressed: () {
                               setState(() {
-                                _selectedCategory = "All News";
+                                _selectedGlobalCategory = "General";
                                 _newsListKey = UniqueKey();
                               });
                             },

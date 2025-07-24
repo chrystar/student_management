@@ -1243,30 +1243,69 @@ class _ManageUsersScreenState extends State<ManageUsersScreen>
       BuildContext context, String userId, String userName) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Delete User'),
         content: Text(
             'Are you sure you want to delete $userName? This action cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              // Delete user implementation
+              // Show loading dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
               try {
                 await FirebaseFirestore.instance
                     .collection('users')
                     .doc(userId)
                     .delete();
+
+                // Close loading dialog
+                Navigator.of(context, rootNavigator: true).pop();
+
+                // Close confirmation dialog if still open
+                Navigator.of(context, rootNavigator: true).pop();
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('User $userName has been deleted')),
+                  SnackBar(
+                    content: Text('User $userName has been deleted'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } on FirebaseException catch (e) {
+                // Close loading dialog
+                Navigator.of(context, rootNavigator: true).pop();
+
+                String errorMessage = 'Error deleting user: ${e.message}';
+                if (e.code == 'permission-denied') {
+                  errorMessage =
+                      'Permission denied: You do not have rights to delete this user. Please check your Firestore security rules.';
+                }
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(errorMessage),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               } catch (e) {
+                // Close loading dialog
+                Navigator.of(context, rootNavigator: true).pop();
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error deleting user: $e')),
+                  SnackBar(
+                    content: Text('Error deleting user: $e'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               }
             },
@@ -1276,56 +1315,56 @@ class _ManageUsersScreenState extends State<ManageUsersScreen>
       ),
     );
   }
+}
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Text(
-            '$label: ',
+Widget _buildDetailRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
+    child: Row(
+      children: [
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
+              color: Colors.grey,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: Colors.grey,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
-  void _showResetPasswordConfirmation(BuildContext context, String email) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Text('Send password reset email to $email?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Password reset implementation
-              // This would typically use Firebase Auth passwordResetEmail
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Password reset link sent to $email')),
-              );
-            },
-            child: const Text('Send'),
-          ),
-        ],
-      ),
-    );
-  }
+void _showResetPasswordConfirmation(BuildContext context, String email) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Reset Password'),
+      content: Text('Send password reset email to $email?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            // Password reset implementation
+            // This would typically use Firebase Auth passwordResetEmail
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Password reset link sent to $email')),
+            );
+          },
+          child: const Text('Send'),
+        ),
+      ],
+    ),
+  );
 }
